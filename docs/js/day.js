@@ -71,7 +71,7 @@ const footHtml = items => {
 
 const scr = {
   id: 'day', title: 'Đẩy lên HEMIS', icon: 'up', group: 2, busy: ['hemis'], on: ['scan', 'hemis'],
-  badge: () => { if (!D.scan || !D.hemis) return null; const n = selN(build()); return n ? { n, label: n + ' bài sẽ đẩy', info: true } : null; },
+  badge: () => { if (!D.scan || !D.hemis) return null; const n = build().filter(x => canTick(x.st)).length; return n ? { n, label: n + ' bài chưa có trên HEMIS', info: true } : null; },
   init(el) {
     root = el; el.innerHTML = html();
     el.addEventListener('click', async e => {

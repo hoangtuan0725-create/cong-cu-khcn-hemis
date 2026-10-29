@@ -274,3 +274,4 @@ button.sel { cursor: pointer }
 .meter i.thr { left: 60% }
 .grid2 > .card { margin-top: 0 }
 .toolbar .chk { margin-right: 12px }
+.tbl tr:has(.cell-in) td { vertical-align: middle }
