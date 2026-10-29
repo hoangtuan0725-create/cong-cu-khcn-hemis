@@ -260,3 +260,17 @@ button.sel { cursor: pointer }
 .seg.g3 { display: grid; grid-template-columns: repeat(3, 1fr) }
 .seg.g3 button:nth-child(-n+3) { border-bottom: 1px solid var(--line2) }
 .seg.g3 button:nth-child(3n) { border-right: 0 }
+
+/* ---------- Màn HEMIS, Danh sách (Sonnet) ---------- */
+.tbl th.wt { width: 38% }
+.tbl td.au { min-width: 240px }
+.sel input[type=search] { width: 220px }
+.sel input[type=search]::-webkit-search-cancel-button { cursor: pointer }
+.foot .meter { width: 220px; margin: 0 }
+.tbl .was { color: var(--err) }
+.tbl .will { color: var(--ok) }
+.tbl .cell-in { min-height: 32px; width: 92px; padding: 0 8px }
+.tbl .cell-in.w { width: 140px }
+.meter i.thr { left: 60% }
+.grid2 > .card { margin-top: 0 }
+.toolbar .chk { margin-right: 12px }

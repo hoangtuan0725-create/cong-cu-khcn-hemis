@@ -62,7 +62,7 @@ const scr = {
     const chips = chipsHtml();
     body.innerHTML = blk('ds.bang', 'Danh sách bài báo', (chips ? '<div class="chipbar">' + chips + '</div>' : '') +
       '<div class="more">TN = tác giả thứ nhất, LH = tác giả liên hệ. Chữ xám = tác giả ngoài trường hoặc không có tài khoản KHCN.</div>' +
-      '<div class="tw"><table class="tbl"><thead><tr><th style="width:34%">Bài báo</th><th>Loại</th><th>Nhóm</th><th>Q</th><th>Ngày</th><th>Tác giả</th><th>Trạng thái</th></tr></thead><tbody>' +
+      '<div class="tw"><table class="tbl"><thead><tr><th class="wt">Bài báo</th><th>Loại</th><th>Nhóm</th><th>Q</th><th>Ngày</th><th>Tác giả</th><th>Trạng thái</th></tr></thead><tbody>' +
       (L1.length ? L1.slice(0, MAXR).map(row).join('') : '<tr><td colspan="7">' + empty('search', 'Không có bài nào', 'Thử bỏ bớt điều kiện lọc hoặc đổi từ khoá tìm.') + '</td></tr>') + '</tbody></table></div>' +
       (L1.length > MAXR ? '<div class="more">Đang hiện ' + MAXR + '/' + L1.length.toLocaleString('vi-VN') + ' bài. Bấm “Tải Excel” để lấy đủ.</div>' : ''),
       { head: '<span class="muted small">' + L1.length.toLocaleString('vi-VN') + ' bài</span>' });

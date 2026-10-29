@@ -115,9 +115,8 @@ const scr = {
         '<div class="card stat"><div class="k">' + icon('check') + 'Đã có trên HEMIS</div><div class="v">' + c('have').toLocaleString('vi-VN') + '</div><div class="h">Bỏ qua</div></div>' +
         '<div class="card stat warn"><div class="k">' + icon('info') + 'Có cảnh báo</div><div class="v">' + c('warn') + '</div><div class="h">Vẫn đẩy được, nên xem</div></div>' +
         '<div class="card stat' + (c('skip') ? ' err' : '') + '"><div class="k">' + icon('alert') + 'Trùng hoặc lỗi loại</div><div class="v">' + c('skip') + '</div><div class="h">Không đẩy (trùng ' + ns('dup') + ' · lỗi loại/ngày ' + ns('bad') + ')</div></div></div>', { card: false }) +
-      '<div style="height:16px"></div>' +
       blk('day.bang', 'Danh sách bài', '<div class="tw"><table class="tbl"><thead><tr>' + (tick ? '<th class="ck"><input type="checkbox" data-all aria-label="Chọn tất cả bài trong mục này"' + (L.some(x => canTick(x.st) && off.has(x.k)) ? '' : ' checked') + (run && run.on ? ' disabled' : '') + '></th>' : '') +
-        '<th style="width:38%">Bài báo</th><th>Loại</th><th>Q</th><th>Ngày</th><th>Tình trạng KHCN</th><th>Kết quả</th></tr></thead><tbody>' +
+        '<th class="wt">Bài báo</th><th>Loại</th><th>Q</th><th>Ngày</th><th>Tình trạng KHCN</th><th>Kết quả</th></tr></thead><tbody>' +
         (L.length ? L.slice(0, MAXR).map(x => row(x, tick)).join('') : '<tr><td colspan="' + (tick ? 7 : 6) + '">' + empty('check', 'Không có bài nào trong mục này', '') + '</td></tr>') + '</tbody></table></div>' +
         (L.length > MAXR ? '<div class="more">Đang hiện ' + MAXR + '/' + L.length + ' bài. Bài nào được tick đều sẽ được đẩy, kể cả bài chưa hiện ở đây.</div>' : ''),
         { headHtml: tabsHtml([['new', 'Sẽ đẩy (' + c('new') + ')'], ['warn', 'Có cảnh báo (' + c('warn') + ')'], ['have', 'Đã có (' + c('have') + ')'], ['skip', 'Bỏ qua (' + c('skip') + ')']], tab) });
