@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Công cụ KHCN TLU → HEMIS",
-  "version": "1.2.0",
-  "description": "Quét bài báo trên KHCN TLU, đẩy lên HEMIS, thống kê dữ liệu KHCN và chỉ số Chuẩn CSGDĐH (Phòng KHCN&HTQT).",
+  "version": "2.0.0",
+  "description": "Cầu nối cho trang Công cụ KHCN TLU → HEMIS: lấy dữ liệu KHCN và HEMIS bằng phiên đăng nhập sẵn có của người dùng.",
   "action": {
     "default_title": "Mở công cụ KHCN TLU → HEMIS",
     "default_icon": {
@@ -17,17 +17,20 @@
     "128": "icon128.png"
   },
   "permissions": [
-    "scripting",
-    "activeTab",
-    "storage"
+    "scripting"
   ],
   "host_permissions": [
     "https://khcn.tlu.edu.vn/*",
-    "https://hemis-cms.moet.gov.vn/*",
-    "https://drive.google.com/*",
-    "https://drive.usercontent.google.com/*"
+    "https://hemis-cms.moet.gov.vn/*"
   ],
   "background": {
     "service_worker": "background.js"
-  }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://hoangtuan0725-create.github.io/cong-cu-khcn-hemis/*"],
+      "js": ["bridge.js"],
+      "run_at": "document_start"
+    }
+  ]
 }
