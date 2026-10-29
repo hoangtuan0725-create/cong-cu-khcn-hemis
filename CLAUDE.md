@@ -1,6 +1,6 @@
 # Công cụ KHCN TLU → HEMIS — tài liệu bàn giao cho Claude Code
 
-Bàn giao ngày 30/10/2026 từ Claude (Cowork). Người dùng: **Tuấn** (CV. Nguyễn Hoàng Tuấn, Phòng KHCN&HTQT – P9, Trường Đại học Thủy lợi).
+Bàn giao ngày 30/10/2026 từ Claude (Cowork); cập nhật cùng ngày sau khi chuyển sang trang web + tiện ích cầu nối. Người dùng: **Tuấn** (CV. Nguyễn Hoàng Tuấn, Phòng KHCN&HTQT – P9, Trường Đại học Thủy lợi).
 
 ## 0. Cách làm việc với Tuấn (bắt buộc)
 
@@ -17,88 +17,44 @@ Bàn giao ngày 30/10/2026 từ Claude (Cowork). Người dùng: **Tuấn** (CV.
 
 ## 2. Hiện trạng mã (thư mục này)
 
+Từ 30/10/2026 công cụ là **trang web tĩnh trên GitHub Pages** (phương án 1 Tuấn đã chọn), cộng một **tiện ích Chrome nhỏ làm cầu nối**. Bản cũ (lớp phủ `src/tool.js`, cập nhật qua Google Drive) đã bỏ khỏi kho; xem lịch sử git nếu cần.
+
 | Đường dẫn | Nội dung |
 |---|---|
-| `src/tool.js` | Toàn bộ công cụ: một IIFE ~135 KB, chèn vào trang KHCN hoặc HEMIS, vẽ một lớp phủ toàn màn hình (`#tlu2hemis`). Không dùng thư viện. |
-| `extension/` | Tiện ích Chrome MV3 bản 1.2.0. `background.js`: khi bấm biểu tượng, tải mã mới nhất từ thư mục Google Drive, ghép các phần, lưu `chrome.storage.local`, rồi chèn vào trang (world MAIN). Không tải được thì dùng bản lưu, rồi `tool.js` kèm theo. |
-| `publish/` | `split.py` (chia tool.js thành 10 phần theo mốc cố định, so md5 với `published.json` để biết phần nào đổi), `published.json` (id file Drive + phiên bản từng phần), `build.py` + `installer_template.html` (tạo trang cài đặt có bookmarklet). |
-| `thiết kế/` | Giao diện mới đã được Tuấn duyệt: `Mẫu giao diện.html` (mở với `#scan`, `#pivot`, `#pivot+filter`, `#pivot+drill`, `#push`, `#tc6`) và 6 ảnh PNG; gợi ý hệ thống thiết kế từ skill ui-ux-pro-max. |
-| `tài liệu/` | Văn bản TT 83/2026 (trích), danh mục 341 tạp chí đạt chuẩn của Bộ KH&CN 2026 (QĐ 2244/QĐ-BKHCN) dạng JSON, tên tạp chí mẫu để thử so khớp. |
-| `kiểm thử/khcn-gia-lap.test.js` | Thử bằng Playwright với trang KHCN giả lập (400 bài ngẫu nhiên, 4 khoa, đủ các endpoint). Chạy: `node "kiểm thử/khcn-gia-lap.test.js"` (cần `playwright`). |
+| `docs/` | Trang công cụ, đăng tại `https://hoangtuan0725-create.github.io/cong-cu-khcn-hemis/` (Pages lấy từ nhánh `main`, thư mục `/docs`). ES modules, không thư viện. |
+| `docs/js/app.js` | Khung: menu trái, chuyển màn theo `#quet`, `#tonghop`, `#danhsach`, `#day`, `#rasoat`, `#tt83`; trạng thái tiện ích ở chân menu. Hợp đồng màn hình: `{ id, title, icon, group, busy, on, badge, init(el), render() }`. |
+| `docs/js/core.js` | Nghiệp vụ dùng chung: `MAP` (ghép loại KHCN → HEMIS), so tên tạp chí với danh mục Bộ KH&CN (`matchDM`), `grpOf`, `LV`, định dạng số/ngày, xuất CSV. `danhmuc.js`: 341 tạp chí QĐ 2244. |
+| `docs/js/bridge.js` | Gọi tiện ích qua `window.postMessage`: `khcn(path, form)` trả Document, `hemis(method, path, data)` trả JSON, `openEdit(id, tênTạpChí)`. |
+| `docs/js/data.js` | Tải dữ liệu KHCN (quét năm, thống kê nhiều năm kèm chi tiết tác giả) và HEMIS; lưu IndexedDB (`store.js`), phát sự kiện `scan`, `stats`, `hemis`, `filter`, `busy`. |
+| `docs/js/ui.js`, `docs/app.css` | Thành phần giao diện và design tokens theo mẫu đã duyệt (`thiết kế/`): khối thu gọn `blk()` (nhớ trạng thái), bảng trượt phải `drawer()` (đóng bằng X, Esc, bấm ra ngoài), hộp thoại `ask()`, `toast()`, `popover()`, biểu tượng SVG Lucide `icon()`. |
+| `docs/js/loc.js` | Bộ lọc dùng chung cho Bảng tổng hợp và Danh sách bài (bảng trượt "Bộ lọc", nhãn điều kiện có nút X). |
+| `docs/js/quet.js`, `tonghop.js`, `danhsach.js`, `day.js`, `rasoat.js`, `tt83.js` | Sáu màn: Quét & kiểm tra, Bảng tổng hợp (nhiều tầng, bảng một chiều, mục tự chọn), Danh sách bài, Đẩy lên HEMIS, Rà soát bài đã có, Chỉ số TT 83. |
+| `docs/tien-ich-khcn-hemis.zip` | Tiện ích đóng gói để người dùng tải từ trang. Tạo lại bằng `python3 "đóng gói tiện ích.py"` mỗi khi sửa `extension/`. |
+| `extension/` | Tiện ích MV3 bản 2.0.0. `bridge.js` (content script, chỉ chạy trên trang công cụ) chuyển yêu cầu tới `background.js`; background tìm hoặc mở ngầm tab KHCN/HEMIS rồi chạy `fetch` trong tab đó bằng `chrome.scripting.executeScript` (dùng cookie KHCN và `localStorage.access_token` của HEMIS). Chỉ nhận lệnh từ trang công cụ; HEMIS chỉ cho GET/POST/PUT trên `/gwdev/`. Bấm biểu tượng tiện ích = mở trang công cụ ở tab mới. |
+| `thiết kế/` | Mẫu giao diện Tuấn đã duyệt (HTML + 6 ảnh). |
+| `tài liệu/` | TT 83/2026 (trích), danh mục tạp chí Bộ KH&CN 2026 (JSON), tên tạp chí mẫu. |
+| `kiểm thử/gia-lap.test.js` | Playwright: phục vụ `docs/` tại địa chỉ Pages thật, giả lập tiện ích, KHCN (400 bài) và HEMIS (GetData, POST, PUT, DetailWithPermission). Chạy: `node "kiểm thử/gia-lap.test.js"`; ảnh chụp lưu ở thư mục tạm (biến `ANH`). `gia-lap-hemis.js`: các bước cho màn HEMIS và Danh sách. |
 
-Các chức năng hiện có:
+Lưu trữ trên máy người dùng (IndexedDB của trang công cụ): `data.scan`, `data.stats`, `data.hemis`, `data.loai`, `khcn.detail` (chi tiết tác giả, giữ lâu dài), `khcn.users` (cán bộ theo bộ môn, 7 ngày), `tc6.{năm}` (số liệu nhập tay TT 83). localStorage `t2h.*`: tuỳ chọn nhỏ (khối thu gọn, cấu hình bảng tổng hợp, mẫu mục tự chọn, bộ lọc, khoảng ngày).
 
-- **Trên KHCN, tab ① Quét & đẩy:** chọn năm báo cáo (01/01–31/12), quét, báo bài thiếu trường bắt buộc / nên có, so tên tạp chí với danh mục Bộ KH&CN (đúng / gần đúng / không có). Nút "Sửa (điền sẵn tên)" mở trang sửa KHCN và điền tên chuẩn vào ô `#tentapchi`. Sau đó chuyển dữ liệu sang HEMIS qua `window.name`.
-- **Trên KHCN, tab ② Thống kê:**
-  - tải dữ liệu theo khoảng ngày, có nút chọn nhanh và tự tải lại khoảng cũ;
-  - bộ lọc nhiều trường kèm vai trò tác giả;
-  - **bảng tổng hợp nhiều tầng**: hàng tối đa 3 cấp, cột tối đa 2 cấp; số liệu gồm số bài, giờ KH, tiền hỗ trợ, điểm HĐCD, IF trung bình; đủ 14 loại công bố theo đúng ô "Tất cả mọi loại công bố" của KHCN; bấm ô số để xem bài; sao chép dán Excel; mẫu nhanh;
-  - bảng một chiều và danh sách bài.
-- **Trên HEMIS:**
-  - đẩy bài chưa có (mọi trạng thái duyệt);
-  - rà soát bài đã có, sửa loại / Q / năm / tên tạp chí bằng PUT;
-  - thống kê Tiêu chuẩn 6 (6.1, 6.2.1, 6.2.2), có ô nhập số liệu xin từ phòng khác, lưu localStorage theo năm.
+Đã thử với tiện ích thật (Chromium, KHCN/HEMIS giả): mở ngầm tab, gửi cookie/token, chặn đường dẫn lạ. **Chưa thử với dữ liệu thật.**
 
-## 3. Việc cần làm tiếp (theo thứ tự)
+## 3. Việc cần làm tiếp
 
-### 3.1. Chuyển công cụ ra "tab riêng toàn màn hình" (Tuấn đã chọn)
+### 3.1. Đã xong: tab riêng toàn màn hình (phương án 1)
+Còn lại cho Tuấn: để kho **Public**, bật GitHub Pages (Settings → Pages → Branch `main`, thư mục `/docs`), gỡ tiện ích 1.x, cài tiện ích 2.0 từ trang.
 
-Tuấn không thích lớp phủ trong trang vì bị bó hẹp. Muốn: bấm nút là mở công cụ thành **một tab riêng như một website**, to hết màn hình, kéo ra cửa sổ riêng được, mở nhiều tab, zoom được. Vẫn dùng phiên đăng nhập KHCN/HEMIS sẵn có và vẫn tự cập nhật.
+### 3.2. Đã xong: giao diện theo mẫu
+Hai màn chưa có mẫu (Danh sách bài, Rà soát bài đã có) làm cùng kiểu; Tuấn chưa duyệt.
 
-Ràng buộc kỹ thuật cần cân nhắc:
-
-- Trang web thường không đọc được KHCN/HEMIS (CORS và cookie), nên vẫn cần extension làm cầu nối.
-- **MV3 cấm trang của extension chạy mã tải từ xa** (không eval, không script ngoài). Vì vậy cơ chế tự cập nhật qua Drive hiện nay **không dùng được** nếu đưa giao diện vào `chrome-extension://…/app.html`.
-- Cookie KHCN khi gọi từ trang extension: cần thử thực tế xem có gửi kèm không (SameSite). Phương án chắc ăn là chạy lệnh `fetch` bên trong một tab KHCN/HEMIS bằng `chrome.scripting.executeScript` rồi trả kết quả về.
-- HEMIS dùng `Authorization: Bearer <localStorage.access_token>` của trang hemis-cms, cộng header `PortalAlias: https://hemis-cms.moet.gov.vn`. Chỉ lấy được token từ một tab HEMIS đang đăng nhập.
-
-Các phương án (trình bày cho Tuấn chọn trước khi làm):
-
-1. **Giao diện là trang web tĩnh** (ví dụ GitHub Pages của Tuấn), extension nhỏ chỉ làm cầu nối (`externally_connectable`, nhận yêu cầu từ trang, chạy fetch trong tab KHCN/HEMIS rồi trả dữ liệu).
-   - Ưu điểm: tự cập nhật bằng cách cập nhật trang web; một giao diện dùng chung cho cả KHCN và HEMIS (không phải chuyển trang). Dữ liệu chỉ đi giữa trình duyệt người dùng và hai hệ thống, không qua máy chủ nào khác.
-   - Nhược điểm: cần nơi đăng trang (mã công khai nhưng không chứa dữ liệu hay mật khẩu).
-2. **Mở tab mới ở chính tên miền KHCN/HEMIS** (một đường dẫn bất kỳ của site) rồi chèn công cụ phủ kín tab. Giữ nguyên cơ chế Drive, ít sửa nhất. Nhược điểm: hai giao diện tách theo site, chuyển dữ liệu giữa hai site qua `chrome.storage`.
-3. **Giao diện nằm trong extension** (`app.html`); cập nhật bằng Chrome Web Store (Unlisted, phí 5 USD, chờ duyệt) hoặc gửi lại zip.
-
-Khuyên dùng: phương án 1 nếu Tuấn chấp nhận đăng trang web. Phải hỏi Tuấn trước.
-
-### 3.2. Làm lại giao diện theo mẫu đã duyệt (`thiết kế/`)
-
-- Sáng, tối giản, một màu nhấn xanh dương `#1D4ED8`. Xanh lá / vàng / đỏ chỉ cho trạng thái, **luôn kèm biểu tượng + chữ**. Font hệ thống "Segoe UI", Roboto, Arial (có tiếng Việt). Bảng dày dữ liệu: chữ bảng 13px, số canh phải, `tabular-nums`, số 0 làm mờ.
-- **Thanh menu trái**, mỗi màn một việc:
-  - trên KHCN: Quét & kiểm tra, Bảng tổng hợp, Danh sách bài;
-  - trên HEMIS: Đẩy lên HEMIS, Rà soát bài đã có, Chỉ số TT 83;
-  - mục không dùng được ở site đang mở thì làm mờ (với phương án 1 thì dùng được hết).
-- Thanh trên của từng màn: tiêu đề, một dòng tóm tắt, nút hành động. Nút hành động chính nằm cố định ở chân màn hình (Sang HEMIS, Đẩy N bài).
-- Bước 1 → 2 → 3 (Quét KHCN → Sửa bài thiếu → Đẩy HEMIS) hiển thị như stepper.
-- Bộ lọc gập vào nút "Bộ lọc (n)", mở thành **bảng trượt bên phải**. Điều kiện đang áp dụng hiện thành nhãn có ✕; nhãn phải xuống dòng được, không cắt mất.
-- **Yêu cầu riêng của Tuấn: mọi khối đều thu gọn hoặc đóng được.**
-  - Mỗi khối (tổng quan, bảng, bảng một chiều…) có nút ▴ thu gọn; nhớ trạng thái thu gọn qua các lần mở.
-  - Danh sách bài khi bấm ô số mở ở bảng trượt phải, đóng bằng ✕, bấm ra ngoài hoặc Esc. Không để danh sách dính lại cuối trang như bản cũ.
-  - Dòng khoa/bộ môn mở và thu gọn được.
-- Không dùng emoji hay ký tự làm biểu tượng (bản cũ dùng ① ② ✕ ▾ ¹ ✉); dùng SVG kiểu Lucide. Có focus khi dùng bàn phím, độ tương phản ≥ 4.5:1, ô bấm cao tối thiểu 32–36px.
-- Bỏ inline style rải rác; dùng CSS variables (design tokens) trong một stylesheet.
-
-### 3.3. Dữ liệu đã quét: hôm sau mở lại có phải quét lại không? (Tuấn hỏi)
-
-Hiện nay:
-
-- Chi tiết tác giả từng bài lưu vĩnh viễn (`localStorage.T2K_DETAIL`).
-- Danh sách cán bộ theo bộ môn lưu 7 ngày (`T2K_USERMAP`).
-- Danh sách 14 loại công bố lưu lại (`T2K_LOAI`).
-- **Danh sách bài và trạng thái duyệt luôn tải lại** mỗi lần mở tab Thống kê (tự tải khoảng ngày lần trước, nhanh vì chi tiết đã có).
-- Tab Quét thì bấm mới quét.
-
-Cần làm:
-
-- Mở lên **hiện ngay dữ liệu lần trước** kèm dòng "dữ liệu lúc hh:mm ngày dd/mm", rồi tự cập nhật ngầm, có nút "Tải lại".
-- Chuyển bộ nhớ sang **IndexedDB**: localStorage giới hạn ~5 MB, sẽ đầy khi dữ liệu nhiều năm.
-- Chi tiết bài nên có cách làm mới: bài bị sửa trên KHCN thì chi tiết cũ không tự cập nhật. Có thể làm mới bài trong 60 ngày gần nhất, hoặc theo ngày sửa nếu KHCN có trường này.
+### 3.3. Dữ liệu đã quét
+Đã làm: mở lên hiện ngay dữ liệu lần trước kèm "dữ liệu lúc hh:mm ngày dd/mm", nút Tải lại, lưu IndexedDB; Bảng tổng hợp tự cập nhật ngầm nếu dữ liệu cũ hơn 1 giờ.
+Chưa làm: tự làm mới chi tiết tác giả của bài bị sửa trên KHCN (hiện phải tick "Lấy lại toàn bộ chi tiết tác giả").
 
 ### 3.4. Kiểm thử
 
-- Giữ và mở rộng `kiểm thử/` (KHCN giả lập). Thêm HEMIS giả lập (GetData, POST, PUT, DetailWithPermission) trước khi chạy thật.
-- **Chưa thử với dữ liệu thật:** bảng tổng hợp nhiều tầng; việc đọc 14 loại công bố từ trang KHCN; định dạng cột Giờ KH và Tiền hỗ trợ (đang đọc giờ kiểu `12,5`, tiền bỏ hết dấu chấm/phẩy); tải mã thật từ Drive (môi trường Cowork bị chặn drive.google.com).
+- Chạy `node "kiểm thử/gia-lap.test.js"` sau mỗi thay đổi; xem ảnh chụp.
+- **Chưa thử với dữ liệu thật:** toàn bộ trang mới qua tiện ích thật; bảng tổng hợp nhiều tầng; việc đọc 14 loại công bố từ trang KHCN; định dạng cột Giờ KH và Tiền hỗ trợ (đang đọc giờ kiểu `12,5`, tiền bỏ hết dấu chấm/phẩy).
 
 ## 4. Nghiệp vụ (đã chốt với Tuấn)
 
@@ -143,12 +99,6 @@ Thông tư 83/2026 (ký 30/9/2026, hiệu lực 15/11/2026; năm dữ liệu đ�
 - **Người học quy đổi** M = SV chính quy + 0,8·kết hợp + 0,5·từ xa + 1,5·HVCH + 2·NCS. Bảng hệ số KTC/KBB theo lĩnh vực nằm trong `LV` của tool.js.
 - **1.3:** các trường bắt buộc trên HEMIS phải đủ 100%.
 
-Kết quả rà soát ngày 27/10/2026, để tham khảo:
-
-- HEMIS có 882 bài; năm 2025: P1 = 233, P2 = 283.
-- Khoảng 591 bài đã duyệt chưa có trên HEMIS.
-- Khoảng 99 bài cũ ghi sai loại; 10 bài lệch năm; 2 cặp trùng (BBKH2025-739/879, 150/182).
-
 ## 5. Đầu mối dữ liệu
 
 KHCN (đăng nhập tài khoản admin, phiên cookie):
@@ -171,14 +121,11 @@ HEMIS (tài khoản của Trường, đơn vị `doN_VI_ID = 452d0027-e4c1-44d1-
 - Mã 401 nghĩa là hết phiên: yêu cầu F5 trên tab HEMIS.
 - Sách (KHCH_SACH_XUAT_BAN) và Sáng chế (KHCN_GIAI_PHAP_SANG_CHE_DON_VI) của Trường hiện trống.
 
-## 6. Tự cập nhật hiện nay (Google Drive)
+## 6. Cập nhật công cụ
 
-- Thư mục Drive của Tuấn: "Công cụ KHCN HEMIS - bản cập nhật" (id `19wg1m-BAa75ZNDEmh6_v3kpd1SWZNMos`), để Anyone with the link, Viewer.
-- File tên `Mã công cụ KHCN HEMIS {phiên bản} phần {i} trên {n}.js`. Tiện ích đọc `https://drive.google.com/embeddedfolderview?id=…`; với mỗi phần lấy file có phiên bản cao nhất (cùng n), tải qua `uc?export=download&id=`, ghép lại, kiểm tra mở đầu `(async` và kết thúc `})();`.
-- Đăng bản mới: sửa `src/tool.js` → `python3 publish/split.py` (in ra phần nào ĐỔI) → tải các phần đổi lên thư mục với số phiên bản mới → bỏ file cũ của phần đó vào thùng rác → cập nhật `published.json`. Đổi số phần n thì phải tải lại cả bộ.
-- Trên Drive hiện nay: phần 2 là bản 2026.10.28; phần 1, 3, 6–10 là 2026.10.28.2; phần 4, 5 là 2026.10.28.3.
-- Lưu ý: khi Claude (Cowork) tải lên qua kết nối Drive, chuỗi `\u` + 4 số hex bị đổi thành ký tự thật, nên mã nguồn tránh kiểu thoát này (dùng `\p{M}`, `String.fromCharCode`). Claude Code không có kết nối Drive: hoặc Tuấn tự tải lên (Drive → New → File upload), hoặc chuyển sang phương án ở mục 3.1.
-- Nếu chọn phương án 1 ở mục 3.1 thì bỏ cơ chế Drive, cập nhật bằng cách đăng lại trang web.
+- Sửa trang: sửa `docs/`, chạy kiểm thử, gộp vào `main`. GitHub Pages tự đăng lại sau 1–2 phút; người dùng chỉ cần F5. Nhớ tăng `APP_VER` trong `docs/js/core.js`.
+- Sửa tiện ích (`extension/`): tăng `version` trong `manifest.json`, chạy `python3 "đóng gói tiện ích.py"`, rồi người dùng tải zip mới và cài lại (Load unpacked) hoặc bấm Reload trong `chrome://extensions`. Hạn chế sửa tiện ích; logic để ở trang.
+- Kho để Public: không đưa dữ liệu bài báo, số liệu nội bộ, mật khẩu, token vào kho.
 
 ## 7. Còn chưa rõ
 
