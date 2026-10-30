@@ -1,10 +1,11 @@
 // Màn "Bảng tổng hợp": bảng nhiều tầng (hàng tối đa 3 cấp, cột tối đa 2 cấp), bảng một chiều, mục tự chọn (mẫu).
-import { esc, norm, toISO, vnDate, fmtTime, downloadCsv, tsv, n2 } from './core.js';
-import { icon, screenHtml, blk, empty, ask, toast, popover, drawer, copy, $ } from './ui.js';
+import { esc, norm, toISO, vnDate, fmtTime, tsv, n2 } from './core.js';
+import { downloadXlsx } from './xlsx.js';
+import { icon, screenHtml, blk, empty, ask, toast, popover, drawer, copy, regBlk, createBtn, $ } from './ui.js';
 import { pref, setPref } from './store.js';
 import { D, loadStats } from './data.js';
 import { guide } from './huongdan.js';
-import { FIELDS, comp, artOK, aOK, needA, roleOK, descSpec, nConds, L, chipsHtml, bindChips, openFilter } from './loc.js';
+import { FIELDS, comp, artOK, aOK, needA, roleOK, descSpec, filter, setSpec, filterBtn, chipsHtml, bindChips, openFilter } from './loc.js';
 
 /* ---- Mau muc tu chon ---- */
 const TPL0 = [
@@ -43,18 +44,21 @@ const PRE = [
   ['Khoa × (Năm → Q)', { rows: ['khoa'], cols: ['y', 'q'] }], ['14 loại × Năm', { rows: ['l'], cols: ['y'] }], ['Khoa × Năm: số bài, giờ KH, tiền', { rows: ['khoa'], cols: ['y'], ms: ['n', 'gio', 'tien'] }],
   ['Khoa × (Năm → Mục tự chọn)', { rows: ['khoa'], cols: ['y', 'tpl'] }]
 ];
+/* Moi bang mot bo loc rieng */
+const FP = filter('tonghop'), F1 = filter('mot');
+const PV0 = { rows: ['khoa'], cols: ['y', 'l'], ms: ['n'], tot: true, yF: 0, yT: 0, cm: 'whole', sort: 'name', hz: false };
 const PV = Object.assign({ rows: ['khoa'], cols: ['y', 'l'], ms: ['n'], tot: true, yF: 0, yT: 0, cm: 'whole', sort: 'name', hz: false, tpl: B0, tc: clone(TPL0) }, pref('pv', {}));
 const savePV = () => setPref('pv', PV);
 const S1 = String.fromCharCode(31), S2 = String.fromCharCode(30), TOT = 'Tổng';
 const cart = arrs => arrs.reduce((acc, vs) => { const o = []; acc.forEach(p => vs.forEach(v => o.push(p.concat([v])))); return o; }, [[]]);
-let LR = null, CL = new Set(), CLsig = '', PVL = [], root, err = '';
+let LR = null, CL = new Set(), CLsig = '', PVL = [], PVX = null, root, err = '';
 const Y = new Date().getFullYear();
 
 /* ===== Tinh bang tong hop (giu nguyen cach tinh cua ban cu) ===== */
 const pvCalc = () => {
   const A = D.stats.arts, LOAI = D.loai || [];
   LM = {}; LOAI.forEach(o => { LM[norm(o)] = o; });
-  const G = comp(L.spec);
+  const G = comp(FP.spec);
   const y0 = Math.min(PV.yF, PV.yT), y1 = Math.max(PV.yF, PV.yT);
   const base = A.filter(a => a.y >= y0 && a.y <= y1 && artOK(a, G));
   const tcs = (PV.tc || []).map(comp);
@@ -120,6 +124,10 @@ const pvTable = () => {
   if (msN.length > 1 || !cD.length) { if (cD.length) h += '<tr>'; h += cells.map(c => th(c.ml)).join('') + '</tr>'; hdrL.push(cells.map(c => c.ml)); }
   h += '</thead><tbody>';
   const lvN = Math.max(1, rD.length);
+  /* o gop cho file Excel: nhom cot o cac dong tieu de, nhan hang o dong dau */
+  const merges = [], cl = i => { let t = ''; i++; while (i) { const m = (i - 1) % 26; t = String.fromCharCode(65 + m) + t; i = (i - 1 - m) / 26; } return t; };
+  hdrL.forEach((l, r) => { for (let j = 0; j < l.length;) { let k = j + 1; while (k < l.length && l[k] === '' && r < cD.length) k++; if (k - j > 1) merges.push(cl(lvN + j) + (r + 1) + ':' + cl(lvN + k - 1) + (r + 1)); j = k; } });
+  if (hdrL.length > 1) for (let c = 0; c < lvN; c++) merges.push(cl(c) + '1:' + cl(c) + hdrL.length);
   const lines = hdrL.map((l, i) => (i === 0 ? rD.map(d => d[1]).concat(new Array(lvN - rD.length).fill('')) : new Array(lvN).fill('')).concat(l));
   const rowCells = rk => cells.map(c => mval(c.m, M.get(rk + S2 + c.lp.join(S1))));
   const vis = [], hid = new Set();
@@ -136,6 +144,10 @@ const pvTable = () => {
   h += vis.slice(0, MAXR).map(fi => { const f = flat[fi]; return tdRow(f.p[f.lvl], f.rk, fi, f.lvl, f.hk, !CL.has(f.rk), false); }).join('') + tdRow(totLab, '', -1, 0, false, false, true) + '</tbody></table>';
   flat.forEach(f => { const r = new Array(lvN).fill(''); for (let i = 0; i <= f.lvl; i++) r[i] = f.p[i]; lines.push(r.concat(rowCells(f.rk).map((x, ci) => fmtV(cells[ci].m, x)))); });
   lines.push([totLab + ' (mỗi bài tính 1 lần)'].concat(new Array(lvN - 1).fill('')).concat(rowCells('').map((x, ci) => fmtV(cells[ci].m, x))));
+  const rnd = (m, v) => m === 'tien' ? Math.round(v) : m === 'ifa' ? Math.round(v * 1000) / 1000 : Math.round(v * 100) / 100;
+  const xrows = lines.slice(0, hdrL.length).concat(flat.map(f => { const r = new Array(lvN).fill(''); for (let i = 0; i <= f.lvl; i++) r[i] = f.p[i]; return r.concat(rowCells(f.rk).map((v, ci) => rnd(cells[ci].m, v))); }));
+  xrows.push([totLab + ' (mỗi bài tính 1 lần)'].concat(new Array(lvN - 1).fill('')).concat(rowCells('').map((v, ci) => rnd(cells[ci].m, v))));
+  PVX = { name: 'Bảng tổng hợp', rows: xrows, head: hdrL.length, freezeCols: lvN, merges, totals: [xrows.length - 1] };
   PVL = lines; LR.cells = cells;
   const notes = [];
   if (PV.cols.includes('l') || PV.rows.includes('l')) notes.push(D.loai && D.loai.length ? 'Loại công bố theo đúng ' + D.loai.length + ' loại trên KHCN.' : 'Chưa đọc được danh sách loại công bố của KHCN nên chỉ hiện loại có bài.');
@@ -149,7 +161,7 @@ const pvTable = () => {
 const GB = [['khoa', 'Khoa / đơn vị'], ['bm', 'Bộ môn'], ['cb', 'Cán bộ'], ['l', 'Loại công bố'], ['grp', 'Nhóm chỉ số'], ['y', 'Năm'], ['j', 'Tạp chí'], ['q', 'Xếp hạng Q'], ['hd', 'Ngành HĐCD'], ['st', 'Trạng thái duyệt']];
 const one = { gb: pref('mot.gb', 'khoa'), cm: pref('mot.cm', 'whole'), lines: [] };
 const oneHtml = () => {
-  const G = comp(L.spec), role = G.role;
+  const G = comp(F1.spec), role = G.role;
   const Ls = D.stats.arts.filter(a => artOK(a, G));
   const gb = one.gb, cm = one.cm, T = new Map();
   const addT = (key, a, w) => { let r = T.get(key); if (!r) { r = { tot: 0, c: {}, q: {} }; T.set(key, r); } r.tot += w; r.c[a.grp] = (r.c[a.grp] || 0) + w; if (a.grp === 'WoS/Scopus' && /^Q\d/.test(a.q)) r.q[a.q] = (r.q[a.q] || 0) + w; };
@@ -164,10 +176,11 @@ const oneHtml = () => {
   const rowsT = [...T.entries()].sort((x, y) => y[1].tot - x[1].tot);
   const hdr = [GB.find(g => g[0] === gb)[1], 'Tổng', 'WoS/Scopus', 'trong đó Q1', 'Q2', 'Q3', 'Q4', 'Trong nước được tính', 'Không được tính'];
   const tab = rowsT.map(([k, r]) => [k, r.tot, r.c['WoS/Scopus'] || 0, r.q.Q1 || 0, r.q.Q2 || 0, r.q.Q3 || 0, r.q.Q4 || 0, r.c['Trong nước được tính'] || 0, (r.c['Không được tính'] || 0) + (r.c['Không rõ loại'] || 0)]);
-  one.lines = [hdr].concat(tab.map(r => [r[0]].concat(r.slice(1).map(n2))));
+  one.lines = [hdr].concat(tab.map(r => [r[0]].concat(r.slice(1).map(v => Math.round(v * 100) / 100))));
   const sumU = rowsT.reduce((s, r) => s + r[1].tot, 0);
   const sel = (k, list, cur) => '<label class="sel">' + (k === 'gb' ? 'Nhóm theo' : 'Cách tính') + ' <select data-one="' + k + '">' + list.map(([v, t]) => '<option value="' + v + '"' + (v === cur ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select></label>';
-  return '<div class="toolbar">' + sel('gb', GB, gb) + (['khoa', 'bm', 'cb'].includes(gb) ? sel('cm', CM, cm) : '') + '<div class="sp"></div><button class="btn sm" data-one-csv>' + icon('dl') + 'Excel</button></div>' +
+  const ch = chipsHtml(F1);
+  return '<div class="toolbar">' + sel('gb', GB, gb) + (['khoa', 'bm', 'cb'].includes(gb) ? sel('cm', CM, cm) : '') + filterBtn(F1) + '</div>' + (ch ? '<div class="chipbar">' + ch + '</div>' : '') +
     '<div class="pvinfo"><span><b>' + Ls.length.toLocaleString('vi-VN') + '</b> bài sau khi lọc · WoS/Scopus ' + Ls.filter(a => a.grp === 'WoS/Scopus').length + ' · Trong nước được tính ' + Ls.filter(a => a.grp === 'Trong nước được tính').length + '</span>' +
     (['khoa', 'bm', 'cb'].includes(gb) && cm === 'whole' && sumU > Ls.length ? '<span>Cộng các dòng = ' + n2(sumU) + ' lớn hơn ' + Ls.length + ' vì một bài có tác giả ở nhiều đơn vị được tính cho mỗi đơn vị.</span>' : '') + '</div>' +
     '<div class="tw" style="max-height:480px"><table class="tbl"><thead><tr>' + hdr.map((x, i) => '<th' + (i ? ' class="num"' : '') + '>' + esc(x) + '</th>').join('') + '</tr></thead><tbody>' +
@@ -193,7 +206,7 @@ const addItem = async sp => {
 };
 const tplAct = async k => {
   const P = pref('mau', {});
-  if (k === 'add') openFilter(D.stats.arts, { saveAs: addItem });
+  if (k === 'add') openFilter({ key: 'moi', spec: {}, temp: true }, D.stats.arts, { saveAs: addItem });
   else if (k === 'save') {
     const n = await ask({ title: 'Lưu mẫu', text: 'Mẫu được lưu trên máy này.', input: 'Tên mẫu', value: String(PV.tpl || '').replace(/ \(đã sửa\)$/, '').replace(/ \(mẫu có sẵn\)$/, ' – của tôi'), ok: 'Lưu' });
     if (!n) return; if (BUILTIN[n]) { toast('Trùng tên mẫu có sẵn, hãy đặt tên khác.', 'err'); return; }
@@ -218,10 +231,10 @@ export const drill = (title, list) => {
   const rows = [['Tên bài', 'Tạp chí / hội nghị', 'Loại công bố', 'Q', 'Ngày', 'Tác giả', 'Giờ KH', 'Tiền hỗ trợ', 'Trạng thái']].concat(list.map(a => [a.t, a.j, a.l, a.q, vnDate(a.d), a.authors.map(z => z.n + (z.first ? ' [TG thứ nhất]' : '') + (z.corr ? ' [TG liên hệ]' : '') + (z.tlu ? ' (' + z.khoa + ')' : '')).join(', '), a.gio, a.tien, a.st]));
   const dr = drawer({
     title, wide: true, flush: true, sub: list.length + ' bài · TN = tác giả thứ nhất, LH = tác giả liên hệ, chữ xám = ngoài trường',
-    head: '<button class="btn sm" data-dcsv>' + icon('dl') + 'Excel</button>',
+    head: '<button class="cbtn" data-dcsv title="Xuất Excel" aria-label="Xuất Excel">' + icon('sheet') + '</button>',
     body: '<table class="tbl"><thead><tr><th>Bài báo</th><th>Q</th><th>Ngày</th><th>Trạng thái</th></tr></thead><tbody>' + list.slice(0, 500).map(a => '<tr><td class="t"><b>' + esc(a.t) + '</b><div class="muted">' + esc(a.j) + ' · ' + auHtml(a) + '</div></td><td class="nowrap">' + esc(a.q === 'Không có Q' ? '—' : a.q) + '</td><td class="nowrap">' + esc(vnDate(a.d)) + '</td><td class="nowrap">' + esc(a.st) + '</td></tr>').join('') + '</tbody></table>' + (list.length > 500 ? '<div class="more">Đang hiện 500/' + list.length + ' bài. Bấm Excel để lấy đủ.</div>' : '')
   });
-  dr.querySelector('[data-dcsv]').onclick = () => downloadCsv('Bài trong ô ' + title.slice(0, 60).replace(/[\\/:*?"<>|]/g, ' '), rows);
+  dr.querySelector('[data-dcsv]').onclick = () => downloadXlsx('Bài trong ô ' + title.slice(0, 60), { name: 'Danh sách bài', rows });
 };
 
 /* ===== Khoang du lieu ===== */
@@ -249,21 +262,32 @@ const dimSel = (k, i, none) => { const v = (k === 'r' ? PV.rows : PV.cols)[i] ||
 const pivotTools = ys => {
   const pre = PRE.findIndex(p => JSON.stringify(p[1].rows) === JSON.stringify(PV.rows) && JSON.stringify(p[1].cols) === JSON.stringify(PV.cols));
   const yo = v => ys.map(y => '<option' + (y === v ? ' selected' : '') + '>' + y + '</option>').join('');
-  const n = nConds(L.spec);
   return '<label class="sel">Mẫu <select data-pre><option value="">(tự chọn)</option>' + PRE.map((p, i) => '<option value="' + i + '"' + (i === pre ? ' selected' : '') + '>' + esc(p[0]) + '</option>').join('') + '</select></label>' +
     '<span class="sel">Hàng <span class="selrow">' + dimSel('r', 0) + icon('right') + dimSel('r', 1, 1) + icon('right') + dimSel('r', 2, 1) + '</span></span>' +
     '<span class="sel">Cột <span class="selrow">' + dimSel('c', 0, 1) + icon('right') + dimSel('c', 1, 1) + '</span></span>' +
     '<button class="sel" data-ms>Số liệu <b>' + esc(MS.filter(m => PV.ms.includes(m[0])).map(m => m[1]).join(', ')) + '</b>' + icon('down') + '</button>' +
     '<span class="sel">Năm <select data-yf aria-label="Từ năm">' + yo(PV.yF) + '</select>–<select data-yt aria-label="Đến năm">' + yo(PV.yT) + '</select></span>' +
     '<button class="sel" data-opt>Tuỳ chọn' + icon('settings') + '</button>' +
-    '<button class="btn' + (n ? ' on' : '') + '" data-filter>' + icon('filter') + 'Bộ lọc' + (n ? ' <span class="badge">' + n + '</span>' : '') + '</button>';
+    filterBtn(FP);
 };
 
 const scr = {
   id: 'tonghop', title: 'Bảng tổng hợp', icon: 'table', group: 1, busy: ['stats'], on: ['stats', 'filter'],
   init(el) {
     root = el;
-    el.innerHTML = screenHtml({ title: 'Bảng tổng hợp', acts: '<button class="btn" data-range>' + icon('calendar') + 'Khoảng dữ liệu</button><button class="btn" data-reload>' + icon('refresh') + 'Tải lại</button><button class="btn" data-csv>' + icon('dl') + 'Excel</button><button class="btn pri" data-copy>' + icon('copy') + 'Sao chép bảng</button>' });
+    el.innerHTML = screenHtml({ title: 'Bảng tổng hợp', acts: '<button class="btn" data-range>' + icon('calendar') + 'Khoảng dữ liệu</button><button class="btn" data-reload>' + icon('refresh') + 'Tải lại</button>' + createBtn('tonghop') + '<button class="btn pri" data-copy>' + icon('copy') + 'Sao chép bảng</button>' });
+    regBlk('th.pivot', {
+      scr: 'tonghop', title: 'Bảng tổng hợp nhiều tầng', render: () => scr.render(),
+      xlsx: () => { if (PVX) downloadXlsx('Bảng tổng hợp KHCN', PVX); },
+      close: () => { setSpec(FP, {}); Object.assign(PV, clone(PV0)); savePV(); CL = new Set(); CLsig = ''; PVX = null; PVL = []; },
+      reopen: done => D.stats && openFilter(FP, D.stats.arts, { title: 'Bảng tổng hợp nhiều tầng', onApply: done })
+    });
+    regBlk('th.mot', {
+      scr: 'tonghop', title: 'Bảng một chiều', render: () => scr.render(),
+      xlsx: () => downloadXlsx('Thống kê KHCN một chiều', { name: 'Bảng một chiều', rows: one.lines, head: 1 }),
+      close: () => { setSpec(F1, {}); one.gb = 'khoa'; one.cm = 'whole'; setPref('mot.gb', 'khoa'); setPref('mot.cm', 'whole'); },
+      reopen: done => D.stats && openFilter(F1, D.stats.arts, { title: 'Bảng một chiều', onApply: done })
+    });
     bindChips(el);
     el.addEventListener('change', e => {
       const t = e.target;
@@ -282,10 +306,9 @@ const scr = {
       if (t.closest('[data-reload]')) { const r = pref('range', null); return r ? load(r[0], r[1], false) : rangePop($('[data-range]', el)); }
       if (t.closest('[data-q0]')) { const v = +t.closest('[data-q0]').dataset.q0; return load('01/01/' + (v >= 2000 ? v : Y - v), '31/12/' + Y, false); }
       if (!D.stats) return;
-      if (t.closest('[data-csv]')) return downloadCsv('Bảng tổng hợp KHCN', PVL);
-      if (t.closest('[data-copy]')) return copy(tsv(PVL), 'Đã sao chép ' + PVL.length + ' dòng. Mở Excel, bấm ô A1 rồi Ctrl+V.');
-      if (t.closest('[data-one-csv]')) return downloadCsv('Thống kê KHCN một chiều', one.lines);
-      if (t.closest('[data-filter]')) return openFilter(D.stats.arts);
+      if (t.closest('[data-copy]')) return PVL.length ? copy(tsv(PVL), 'Đã sao chép ' + PVL.length + ' dòng. Mở Excel, bấm ô A1 rồi Ctrl+V.') : toast('Bảng tổng hợp đang đóng. Bấm Tạo bảng để tạo lại.', 'err');
+      const fb = t.closest('[data-filter]');
+      if (fb) return openFilter(filter(fb.dataset.filter), D.stats.arts, { title: fb.dataset.filter === 'mot' ? 'Bảng một chiều' : 'Bảng tổng hợp nhiều tầng' });
       if (t.closest('[data-tpl]')) return tplAct(t.closest('[data-tpl]').dataset.tpl);
       const ti = t.closest('[data-ti]');
       if (ti) {
@@ -334,16 +357,17 @@ const scr = {
     body.innerHTML = errHtml +
       blk('th.pivot', 'Bảng tổng hợp nhiều tầng', '<div class="toolbar">' + pivotTools(ys.length ? ys : [y0]) + '</div><div class="chipbar" data-chips></div><div class="pvinfo" data-pvinfo></div><div class="tw" data-pvout></div>',
         { tools: '<span class="muted small">Bấm vào số để xem danh sách bài</span>' }) +
-      (useTpl ? blk('th.tpl', 'Mục tự chọn (mẫu)', tplHtml()) : '') +
+      (useTpl ? blk('th.tpl', 'Mục tự chọn (mẫu)', tplHtml(), { fixed: true }) : '') +
       blk('th.mot', 'Bảng một chiều', oneHtml(), { def: true });
+    if (!body.querySelector('[data-blk="th.pivot"], [data-blk="th.mot"]')) body.insertAdjacentHTML('beforeend', '<div class="card">' + empty('table', 'Các bảng đang đóng', 'Bấm “Tạo bảng” ở trên để tạo lại bảng, rồi chọn điều kiện lọc.', '') + '</div>');
     renderPivot();
   }
 };
 export default scr;
 
 function renderPivot(recalc = true) {
-  const out = $('[data-pvout]', root); if (!out || !D.stats) return;
-  const ch = $('[data-chips]', root); const c = chipsHtml(); ch.innerHTML = c; ch.hidden = !c;
+  const out = $('[data-pvout]', root); if (!out || !D.stats) { PVL = []; PVX = null; return; }
+  const ch = $('[data-chips]', root); const c = chipsHtml(FP); ch.innerHTML = c; ch.hidden = !c;
   if (recalc) pvCalc();
   const r = pvTable(); out.innerHTML = r.table; $('[data-pvinfo]', root).innerHTML = r.info;
 }

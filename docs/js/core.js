@@ -2,7 +2,7 @@
 import { DMKHCN } from './danhmuc.js';
 
 export const DV = '452d0027-e4c1-44d1-9efb-befb8db8840d';
-export const APP_VER = '2026.10.30';
+export const APP_VER = '2026.10.30.2';
 
 export const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replace(/đ/g, 'd').replace(/[^\p{L}\p{N}]/gu, '');
 export const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

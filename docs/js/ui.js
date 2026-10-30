@@ -18,22 +18,65 @@ export const screenHtml = ({ title, sub, acts, foot }) =>
   '<div class="busy" data-busy hidden><span class="spin" aria-hidden="true"></span><span data-busytxt></span></div>' +
   '<div class="body" data-body></div>' + (foot ? '<div class="foot" data-foot></div>' : '');
 
-/* Khoi thu gon duoc; nho trang thai thu gon qua cac lan mo.
-   card = true: khoi dang the co dau the; card = false: tieu de nho + duong ke (nhu "Tong quan" trong mau) */
+/* ---- Khoi ket qua ----
+   Moi ket qua (bang hoac khong phai bang) nam trong mot khoi co o goc phai: nut Excel, nut — thu gon (chi an,
+   giu nguyen bo loc), nut X dong han (bo bo loc va cach sap xep cua khoi do).
+   Man hinh dang ky khoi bang regBlk(id, { scr, title, kind, close(), xlsx(), reopen(), render() }):
+   kind 'table' = bang co the tao lai bang nut "Tao bang"; dong roi thi nho ca lan mo sau.
+   kind 'info'  = ket qua khong phai bang (o so tong quan...); dong roi thi hien lai khi tai/quet lai du lieu.
+   o (tuy chon cua blk): def (mac dinh thu gon), head/headHtml/tools (noi dung dau khoi), pad (them le trong),
+   fixed (khoi nhap lieu/cau hinh: chi thu gon, khong dong, khong xuat Excel) */
 const colKey = id => 'col.' + id;
+const H = {};
+const infoClosed = new Set();
+export const regBlk = (id, h) => { H[id] = Object.assign({ kind: 'table' }, h); };
 export const isCollapsed = (id, def) => pref(colKey(id), !!def);
+export const isClosed = id => infoClosed.has(id) || pref('dong.' + id, false);
+export const openBlk = id => { infoClosed.delete(id); setPref('dong.' + id, false); setPref(colKey(id), false); };
+export const reopenInfo = () => infoClosed.clear();
 export const blk = (id, title, inner, o = {}) => {
-  const c = isCollapsed(id, o.def) ? ' collapsed' : '';
-  const btn = '<button class="cbtn" data-collapse="' + id + '" aria-expanded="' + !c + '" title="' + (c ? 'Mở' : 'Thu gọn') + '" aria-label="' + (c ? 'Mở' : 'Thu gọn') + ' ' + esc(title) + '">' + icon('up2') + '</button>';
-  if (o.card === false) return '<div class="blk' + c + '" data-blk="' + id + '"><div class="blk-h"><b>' + esc(title) + '</b>' + (o.head || '') + '<div class="ln"></div>' + btn + '</div><div class="blk-b">' + inner + '</div></div>';
-  return '<section class="card blk' + c + '" data-blk="' + id + '"><div class="card-h">' + (o.headHtml || '<b>' + esc(title) + '</b>') + (o.head || '') + '<div class="sp"></div>' + (o.tools || '') + btn + '</div><div class="blk-b">' + inner + '</div></section>';
+  if (!o.fixed && isClosed(id)) return '';
+  const c = isCollapsed(id, o.def) ? ' collapsed' : '', h = H[id] || {};
+  const ctl = (!o.fixed && h.xlsx ? '<button class="cbtn" data-xlsx="' + id + '" title="Xuất Excel" aria-label="Xuất Excel ' + esc(title) + '">' + icon('sheet') + '</button>' : '') +
+    '<button class="cbtn" data-collapse="' + id + '" aria-expanded="' + !c + '" title="' + (c ? 'Mở rộng' : 'Thu gọn') + '" aria-label="' + (c ? 'Mở rộng ' : 'Thu gọn ') + esc(title) + '">' + icon(c ? 'square' : 'minus') + '</button>' +
+    (o.fixed ? '' : '<button class="cbtn" data-close="' + id + '" title="Đóng" aria-label="Đóng ' + esc(title) + '">' + icon('x') + '</button>');
+  return '<section class="card blk' + c + '" data-blk="' + id + '"><div class="card-h">' + (o.headHtml || '<b>' + esc(title) + '</b>') + (o.head || '') + '<div class="sp"></div>' + (o.tools || '') + '<span class="bctl">' + ctl + '</span></div><div class="blk-b">' + (o.pad ? '<div class="card-b">' + inner + '</div>' : inner) + '</div></section>';
 };
 document.addEventListener('click', e => {
-  const b = e.target.closest('[data-collapse]'); if (!b) return;
-  const box = b.closest('.blk'), on = !box.classList.contains('collapsed');
-  box.classList.toggle('collapsed', on); setPref(colKey(b.dataset.collapse), on);
-  b.setAttribute('aria-expanded', String(!on)); b.title = on ? 'Mở' : 'Thu gọn';
+  const b = e.target.closest('[data-collapse]');
+  if (b) {
+    const box = b.closest('.blk'), on = !box.classList.contains('collapsed');
+    box.classList.toggle('collapsed', on); setPref(colKey(b.dataset.collapse), on);
+    b.setAttribute('aria-expanded', String(!on)); b.title = on ? 'Mở rộng' : 'Thu gọn'; b.innerHTML = icon(on ? 'square' : 'minus');
+    return;
+  }
+  const x = e.target.closest('[data-close]');
+  if (x) {
+    const id = x.dataset.close, h = H[id] || {};
+    if (h.kind === 'info') infoClosed.add(id); else setPref('dong.' + id, true);
+    setPref(colKey(id), false);
+    if (h.close) h.close();
+    if (h.render) h.render(); else { const box = x.closest('.blk'); if (box) box.remove(); }
+    return;
+  }
+  const xl = e.target.closest('[data-xlsx]');
+  if (xl && H[xl.dataset.xlsx] && H[xl.dataset.xlsx].xlsx) { H[xl.dataset.xlsx].xlsx(); return; }
+  const cr = e.target.closest('[data-create]');
+  if (cr) createMenu(cr);
 });
+/* Nut "Tao bang" tren thanh tren cua man hinh: tao lai bang da dong (o trang thai moi) */
+export const createBtn = scr => '<button class="btn" data-create="' + scr + '" aria-haspopup="true">' + icon('plus') + 'Tạo bảng' + icon('down') + '</button>';
+const createMenu = btn => {
+  const list = Object.entries(H).filter(([, h]) => h.scr === btn.dataset.create && h.kind === 'table');
+  const p = popover(btn, '<div style="width:300px"><div class="muted small" style="padding:4px 8px 8px">Chọn bảng để tạo lại. Bảng mở ra ở trạng thái mới' + (list.some(([, h]) => h.reopen) ? ', kèm bảng Bộ lọc để lọc lại' : '') + '.</div>' +
+    list.map(([id, h]) => { const cl = isClosed(id); return '<button class="btn ghost" style="width:100%;justify-content:flex-start" data-mk="' + id + '"' + (cl ? '' : ' disabled') + '>' + icon('table') + esc(h.title) + (cl ? '' : ' (đang mở)') + '</button>'; }).join('') + '</div>');
+  p.el.addEventListener('click', e => {
+    const m = e.target.closest('[data-mk]'); if (!m) return;
+    const h = H[m.dataset.mk]; p.close();
+    if (h.reopen) h.reopen(() => { openBlk(m.dataset.mk); h.render && h.render(); });
+    else { openBlk(m.dataset.mk); h.render && h.render(); }
+  });
+};
 
 /* Tab trong the: list = [[key, nhan]] */
 export const tabsHtml = (list, cur) => '<div class="tabs" role="tablist">' + list.map(([k, t]) => '<button class="tab" role="tab" data-tab="' + k + '" aria-selected="' + (k === cur) + '">' + esc(t) + '</button>').join('') + '</div>';

@@ -275,3 +275,4 @@ button.sel { cursor: pointer }
 .grid2 > .card { margin-top: 0 }
 .toolbar .chk { margin-right: 12px }
 .tbl tr:has(.cell-in) td { vertical-align: middle }
+.bctl { display: inline-flex; align-items: center; gap: 2px }

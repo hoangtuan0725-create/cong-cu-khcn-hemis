@@ -1,6 +1,7 @@
 // Màn "Chỉ số TT 83": ước tính Tiêu chuẩn 6 (6.1, 6.2.1, 6.2.2) từ bài đã có trên HEMIS + số liệu xin phòng khác (lưu trên máy theo năm).
-import { esc, norm, num, nf, n2, fmtTime, matchDM, downloadCsv, LV } from './core.js';
-import { icon, pill, screenHtml, blk, tabsHtml, empty, toast, $ } from './ui.js';
+import { esc, norm, num, nf, n2, fmtTime, matchDM, LV } from './core.js';
+import { downloadXlsx } from './xlsx.js';
+import { icon, pill, screenHtml, blk, tabsHtml, empty, toast, regBlk, createBtn, $ } from './ui.js';
 import * as S from './store.js';
 import { D, loadHemis } from './data.js';
 import { guide } from './huongdan.js';
@@ -99,7 +100,7 @@ const kpisHtml = R => {
 
 const put = (key, val, plain) => { const e = root.querySelector('[data-v="' + key + '"]'); if (!e) return; e.textContent = plain ? val : nf(val, 0); if (!plain) e.classList.toggle('z', !val); };
 const paint = R => {
-  $('[data-kpis]', root).innerHTML = kpisHtml(R);
+  const kp = $('[data-kpis]', root); if (kp) kp.innerHTML = kpisHtml(R);
   put('p1', R.p1); put('p1q', R.p1); put('p2', R.p2); put('p2q', 2 * R.p2); put('p3q', 3 * R.p3); put('p4q', 5 * R.p4);
   put('P', n2(R.P), true);
   put('pnote', (R.Y >= 2026 ? 'P1: ' + R.p1dm + ' bài trên tạp chí thuộc danh mục Bộ KH&CN' + (R.p1near ? ' (' + R.p1near + ' bài tên tạp chí gần đúng, nên sửa tên)' : '') + ' · ' + R.p1hd + ' bài theo danh mục HĐGSNN công bố đến 30/9/2026' + (R.noDate ? ' (' + R.noDate + ' bài chưa có ngày công bố vì chưa quét KHCN, tạm tính theo HĐGSNN)' : '') + '. ' : 'P1: bài trong nước theo danh mục HĐGSNN. ') +
@@ -115,7 +116,7 @@ const paint = R => {
 const html = () => screenHtml({
   title: 'Chỉ số TT 83 – Tiêu chuẩn 6',
   acts: '<label class="sel">Năm báo cáo <select data-yr aria-label="Năm báo cáo">' + YEARS.map(y => '<option value="' + y + '">' + y + '</option>').join('') + '</select></label>' +
-    '<button class="btn" data-reload>' + icon('refresh') + '<span>Lấy lại từ HEMIS</span></button>',
+    '<button class="btn" data-reload>' + icon('refresh') + '<span>Lấy lại từ HEMIS</span></button>' + createBtn('tt83'),
   foot: true
 });
 
@@ -128,6 +129,9 @@ const scr = {
   id: 'tt83', title: 'Chỉ số TT 83', icon: 'gauge', group: 2, busy: ['hemis'], on: ['hemis', 'scan', 'stats'],
   init(el) {
     root = el; el.innerHTML = html();
+    regBlk('tt83.kpi', { scr: 'tt83', kind: 'info', title: 'Kết quả ước tính', render: () => scr.render(), xlsx: xKpi });
+    regBlk('tt83.sanpham', { scr: 'tt83', title: 'Sản phẩm KHCN trong năm', render: () => scr.render(), xlsx: xSp });
+    regBlk('tt83.ds', { scr: 'tt83', title: 'Danh sách bài được tính', render: () => scr.render(), xlsx: () => xDs(tab), close: () => { tab = 'all'; } });
     const ys = $('[data-yr]', el); ys.value = yr;
     ys.onchange = async () => { yr = ys.value; S.setPref('tt83.year', +yr); tab = 'all'; await loadInp(); scr.render(); };
     el.addEventListener('input', e => {
@@ -141,7 +145,7 @@ const scr = {
     el.addEventListener('click', async e => {
       const tb = e.target.closest('[data-tab]'); if (tb) { tab = tb.dataset.tab; scr.render(); return; }
       if (e.target.closest('[data-reload]')) { await reload(); return; }
-      if (e.target.closest('[data-csv]')) csv();
+      if (e.target.closest('[data-csv]')) xAll();
     });
     loadInp().then(() => scr.render());
   },
@@ -163,8 +167,8 @@ const scr = {
     body.innerHTML = errHtml +
       blk('tt83.tuychon', 'Tuỳ chọn tính', '<div class="toolbar"><label class="chk"><input type="checkbox" data-opt="ts"' + (opt('ts') ? ' checked' : '') + '>Trường có đào tạo tiến sĩ</label>' +
         '<label class="chk"><input type="checkbox" data-opt="ky"' + (opt('ky') ? ' checked' : '') + '>Tính kỷ yếu ISI/Scopus là bài WoS/Scopus</label></div>' +
-        '<div class="more">Các ô tick chỉ đổi con số ước tính trên công cụ này, không đổi gì trên HEMIS. Số liệu anh/chị nhập bên dưới được lưu trên máy này, theo từng năm.</div>') +
-      blk('tt83.kpi', 'Kết quả ước tính', '<div class="stats c3" data-kpis></div>', { card: false }) +
+        '<div class="more">Các ô tick chỉ đổi con số ước tính trên công cụ này, không đổi gì trên HEMIS. Số liệu anh/chị nhập bên dưới được lưu trên máy này, theo từng năm.</div>', { fixed: true }) +
+      blk('tt83.kpi', 'Kết quả ước tính', '<div class="stats c3" data-kpis></div>', { pad: true }) +
       '<div class="grid2">' +
       blk('tt83.sanpham', 'Sản phẩm KHCN năm ' + Y, tbl('<th>Nhóm</th><th class="num">Số lượng</th><th class="num">Hệ số</th><th class="num">Quy đổi</th>',
         '<tr><td>P1 Bài trong nước được công nhận</td><td class="num" data-v="p1"></td><td class="num">1</td><td class="num" data-v="p1q"></td></tr>' +
@@ -182,16 +186,16 @@ const scr = {
         tbl('<th></th><th class="num">Năm ' + Y + '</th><th class="num">Năm ' + (Y - 1) + '</th><th class="num">Năm ' + (Y - 2) + '</th>',
           '<tr><td>R: Tổng thu hoạt động</td>' + [0, 1, 2].map(i => '<td class="num">' + cin('r' + i, 'w', 'R năm ' + (Y - i)) + '</td>').join('') + '</tr>' +
           '<tr><td>R1: Thu từ KHCN và ĐMST</td>' + [0, 1, 2].map(i => '<td class="num">' + cin('k' + i, 'w', 'R1 năm ' + (Y - i)) + '</td>').join('') + '</tr>') +
-        '<div class="more">Người học theo lĩnh vực (Phòng Đào tạo): <b data-v="lvsum"></b></div>', { tools: '<span class="muted small">tự lưu trên máy</span>' }) +
+        '<div class="more">Người học theo lĩnh vực (Phòng Đào tạo): <b data-v="lvsum"></b></div>', { tools: '<span class="muted small">tự lưu trên máy</span>', fixed: true }) +
       '</div>' +
       blk('tt83.nguoihoc', 'Người học theo lĩnh vực (Phòng Đào tạo), để tính hệ số KLV',
         '<div class="more">Chỉ điền các lĩnh vực trường có đào tạo. M = SV chính quy × 1 + SV kết hợp × 0,8 + SV từ xa × 0,5 + học viên cao học × 1,5 + NCS × 2. KLV (kinh phí) dùng cho 6.1, KLV (công bố) dùng cho 6.2.2.</div>' +
         tbl('<th>Lĩnh vực</th>' + COLS.map(c => '<th class="num">' + c + '</th>').join('') + '<th class="num">M</th><th class="num">Hệ số KTC</th><th class="num">Hệ số KBB</th>',
           LV.map((l, i) => '<tr><td>' + esc(l[0]) + '</td>' + [0, 1, 2, 3, 4].map(c => '<td class="num">' + cin('m' + i + '_' + c, '', COLS[c] + ', ' + l[0]) + '</td>').join('') + '<td class="num" data-v="m' + i + '"></td><td class="num">' + nf(l[1], 1) + '</td><td class="num">' + nf(l[2], 1) + '</td></tr>').join('') +
-          '<tr class="tot"><td>Tổng N</td><td colspan="5"></td><td class="num" data-v="N"></td><td class="num" data-v="ktc"></td><td class="num" data-v="kbb"></td></tr>'), { def: true }) +
+          '<tr class="tot"><td>Tổng N</td><td colspan="5"></td><td class="num" data-v="N"></td><td class="num" data-v="ktc"></td><td class="num" data-v="kbb"></td></tr>'), { def: true, fixed: true }) +
       blk('tt83.ds', 'Danh sách bài được tính năm ' + Y, tbl('<th>Mã HEMIS</th><th class="wt">Bài báo</th><th>Được tính vào</th><th>Ghi chú</th>',
         L.length ? L.slice(0, MAXR).map(row).join('') : '<tr><td colspan="4">' + empty('check', 'Không có bài nào trong mục này', '') + '</td></tr>') +
-        (L.length > MAXR ? '<div class="more">Đang hiện ' + MAXR + '/' + L.length + ' bài. Bấm “Tải Excel” để lấy đủ.</div>' : ''),
+        (L.length > MAXR ? '<div class="more">Đang hiện ' + MAXR + '/' + L.length + ' bài. Bấm Excel ở góc bảng để lấy đủ.</div>' : ''),
         { def: true, headHtml: tabsHtml([['all', 'Tất cả (' + R.rows.length + ')'], ['P1', 'P1 (' + cnt('P1') + ')'], ['P2', 'P2 (' + cnt('P2') + ')'], ['no', 'Không tính (' + cnt('no') + ')']], tab) });
     foot.innerHTML = '<span data-v="foot"></span><div class="sp"></div><button class="btn pri" data-csv>' + icon('dl') + 'Tải Excel</button>';
     paint(R);
@@ -205,11 +209,20 @@ async function reload() {
   try { await loadHemis(); toast('Đã lấy lại danh sách bài trên HEMIS'); } catch (x) { fail(x); }
 }
 
-function csv() {
-  if (!D.hemis) { toast('Chưa có dữ liệu HEMIS để tải.', 'err'); return; }
-  const L = compute();
-  downloadCsv('Thống kê chỉ số TT 83 năm ' + L.Y, [['THỐNG KÊ TIÊU CHUẨN 6 – NĂM ' + L.Y], [], ['Bảng 6A', 'Số lượng', 'Hệ số', 'Quy đổi'], ['P1 Bài báo trong nước được công nhận', L.p1, 1, L.p1], ['P2 Bài WoS/Scopus', L.p2, 2, 2 * L.p2], ['P3 Sách chuyên khảo + GPHI', L.p3, 3, 3 * L.p3], ['P4 Bằng sáng chế', L.p4, 5, 5 * L.p4], ['Tổng P', '', '', L.P], [],
-    ['GQĐ', L.GQD], ['KLV (kinh phí)', L.KTC], ['KLV (công bố)', L.KBB], [], ['6.1', L.T61 == null ? '' : L.T61], ['6.2.1', L.T621 == null ? '' : L.T621], ['6.2.2', L.T622 == null ? '' : L.T622], [],
-    ['DANH SÁCH BÀI BÁO NĂM ' + L.Y + ' TRÊN HEMIS'], ['Mã HEMIS', 'Tên bài báo', 'Tạp chí', 'Được tính vào', 'Ghi chú']]
-    .concat(L.rows.map(r => [r.x.mA_BAI_BAO, r.x.teN_BAI_BAO, r.x.teN_TAP_CHI, GL[r.g], r.dmName ? 'Tên tạp chí nên sửa thành: ' + r.dmName : ''])));
-}
+/* ---- Xuat Excel (day du; so de dang so) ---- */
+const KQ = (v, thr, ap) => v == null ? 'Thiếu số liệu' : !ap ? 'Không áp dụng' : v >= thr ? 'Đạt' : 'Chưa đạt';
+const GLN = { all: 'Tất cả', P1: 'P1', P2: 'P2', no: 'Không tính' };
+const shKpi = R => ({ name: 'Chỉ số', head: 1, rows: [['Chỉ số', 'Yêu cầu (≥)', 'Thực tế', 'Đơn vị', 'Kết quả'],
+  ['6.1 Tỷ trọng thu KHCN và ĐMST (trung bình 3 năm × KLV kinh phí)', R.coTS ? 5 : '', R.T61 == null ? '' : R.T61 * 100, '%', KQ(R.T61, 0.05, R.coTS)],
+  ['6.2.1 Sản phẩm KHCN quy đổi / giảng viên quy đổi', R.thr621, R.T621 == null ? '' : R.T621, 'tỷ số', KQ(R.T621, R.thr621, true)],
+  ['6.2.2 Bài WoS/Scopus × KLV công bố / giảng viên quy đổi', R.coTS ? 0.3 : '', R.T622 == null ? '' : R.T622, 'tỷ số', KQ(R.T622, 0.3, R.coTS)],
+  ['GQĐ (giảng viên quy đổi)', '', R.GQD || '', 'người', ''], ['KLV kinh phí', '', R.KTC, 'hệ số', ''], ['KLV công bố', '', R.KBB, 'hệ số', '']] });
+const shSp = R => ({ name: 'Sản phẩm', head: 1, totals: [5], rows: [['Nhóm sản phẩm năm ' + R.Y, 'Số lượng', 'Hệ số', 'Quy đổi'],
+  ['P1 Bài trong nước được công nhận', R.p1, 1, R.p1], ['P2 Bài WoS/Scopus', R.p2, 2, 2 * R.p2], ['P3 Sách chuyên khảo + giải pháp hữu ích', R.p3, 3, 3 * R.p3], ['P4 Bằng sáng chế', R.p4, 5, 5 * R.p4], ['Tổng P', '', '', R.P]] });
+const shDs = (R, g) => ({ name: GLN[g] === 'Tất cả' ? 'Danh sách bài' : 'Bài ' + GLN[g], head: 1, freezeCols: 1, rows: [['Mã HEMIS', 'Tên bài báo', 'Tạp chí', 'Được tính vào', 'Ghi chú']]
+  .concat(R.rows.filter(r => g === 'all' || r.g === g).map(r => [r.x.mA_BAI_BAO, r.x.teN_BAI_BAO, r.x.teN_TAP_CHI, GL[r.g], r.dmName ? 'Tên tạp chí nên sửa thành: ' + r.dmName : r.nodate ? 'Chưa có ngày công bố, tạm tính theo HĐGSNN' : ''])) });
+const withR = fn => { if (!D.hemis) { toast('Chưa có dữ liệu HEMIS để tải.', 'err'); return; } fn(compute()); };
+const xKpi = () => withR(R => downloadXlsx('Chỉ số TT 83 năm ' + R.Y, shKpi(R)));
+const xSp = () => withR(R => downloadXlsx('Sản phẩm KHCN năm ' + R.Y, shSp(R)));
+const xDs = g => withR(R => downloadXlsx('Bài được tính TT 83 năm ' + R.Y + ' ' + GLN[g], shDs(R, g)));
+const xAll = () => withR(R => downloadXlsx('Thống kê chỉ số TT 83 năm ' + R.Y, [shKpi(R), shSp(R), shDs(R, 'all')]));

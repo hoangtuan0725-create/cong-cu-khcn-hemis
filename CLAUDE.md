@@ -27,11 +27,12 @@ Từ 30/10/2026 công cụ là **trang web tĩnh trên GitHub Pages** (phương 
 | `docs/js/bridge.js` | Gọi tiện ích qua `window.postMessage`: `khcn(path, form)` trả Document, `hemis(method, path, data)` trả JSON, `openEdit(id, tênTạpChí)`. |
 | `docs/js/data.js` | Tải dữ liệu KHCN (quét năm, thống kê nhiều năm kèm chi tiết tác giả) và HEMIS; lưu IndexedDB (`store.js`), phát sự kiện `scan`, `stats`, `hemis`, `filter`, `busy`. |
 | `docs/js/ui.js`, `docs/app.css` | Thành phần giao diện và design tokens theo mẫu đã duyệt (`thiết kế/`): khối thu gọn `blk()` (nhớ trạng thái), bảng trượt phải `drawer()` (đóng bằng X, Esc, bấm ra ngoài), hộp thoại `ask()`, `toast()`, `popover()`, biểu tượng SVG Lucide `icon()`. |
-| `docs/js/loc.js` | Bộ lọc dùng chung cho Bảng tổng hợp và Danh sách bài (bảng trượt "Bộ lọc", nhãn điều kiện có nút X). |
+| `docs/js/loc.js` | Bộ lọc: **mỗi bảng một bộ lọc riêng** (`filter('tonghop')`, `filter('mot')`, `filter('danhsach')`), bảng trượt "Bộ lọc", nhãn điều kiện có nút X. |
+| `docs/js/xlsx.js` | Xuất file .xlsx thật, không thư viện: tiêu đề đậm, cố định tiêu đề, cột tự rộng (tối đa 60, chữ dài tự xuống dòng), số để dạng số, ô gộp, dòng tổng. |
 | `docs/js/quet.js`, `tonghop.js`, `danhsach.js`, `day.js`, `rasoat.js`, `tt83.js` | Sáu màn: Quét & kiểm tra, Bảng tổng hợp (nhiều tầng, bảng một chiều, mục tự chọn), Danh sách bài, Đẩy lên HEMIS, Rà soát bài đã có, Chỉ số TT 83. |
 | `docs/tien-ich-khcn-hemis.zip` | Tiện ích đóng gói để người dùng tải từ trang. Tạo lại bằng `python3 "đóng gói tiện ích.py"` mỗi khi sửa `extension/`. |
 | `extension/` | Tiện ích MV3 bản 2.0.0. `bridge.js` (content script, chỉ chạy trên trang công cụ) chuyển yêu cầu tới `background.js`; background tìm hoặc mở ngầm tab KHCN/HEMIS rồi chạy `fetch` trong tab đó bằng `chrome.scripting.executeScript` (dùng cookie KHCN và `localStorage.access_token` của HEMIS). Chỉ nhận lệnh từ trang công cụ; HEMIS chỉ cho GET/POST/PUT trên `/gwdev/`. Bấm biểu tượng tiện ích = mở trang công cụ ở tab mới. |
-| `thiết kế/` | Mẫu giao diện Tuấn đã duyệt (HTML + 6 ảnh). |
+| `thiết kế/` | Mẫu giao diện Tuấn đã duyệt (HTML + ảnh Mẫu 1–9; Mẫu 7–9: khối thu gọn, đóng, tạo lại). |
 | `tài liệu/` | TT 83/2026 (trích), danh mục tạp chí Bộ KH&CN 2026 (JSON), tên tạp chí mẫu. |
 | `kiểm thử/gia-lap.test.js` | Playwright: phục vụ `docs/` tại địa chỉ Pages thật, giả lập tiện ích, KHCN (400 bài) và HEMIS (GetData, POST, PUT, DetailWithPermission). Chạy: `node "kiểm thử/gia-lap.test.js"`; ảnh chụp lưu ở thư mục tạm (biến `ANH`). `gia-lap-hemis.js`: các bước cho màn HEMIS và Danh sách. |
 
@@ -46,6 +47,11 @@ Còn lại cho Tuấn: để kho **Public**, bật GitHub Pages (Settings → Pa
 
 ### 3.2. Đã xong: giao diện theo mẫu
 Hai màn chưa có mẫu (Danh sách bài, Rà soát bài đã có) làm cùng kiểu; Tuấn chưa duyệt.
+
+### 3.2b. Đã xong: khối thu gọn / đóng / xuất Excel (Tuấn duyệt Mẫu 7–9 ngày 30/10/2026)
+- Mọi kết quả (bảng và không phải bảng) nằm trong khối; góc phải có 3 biểu tượng: xuất Excel (.xlsx, chỉ biểu tượng, không chữ), **—** thu gọn (chỉ ẩn, giữ bộ lọc; khi thu gọn đổi thành □), **X** đóng hẳn (bỏ bộ lọc, tab, tick, cách sắp xếp của khối).
+- Bảng đã đóng: tạo lại bằng nút "Tạo bảng" ở thanh trên (bảng có bộ lọc thì mở bảng Bộ lọc, Áp dụng mới hiện). Khối không phải bảng (kind `info`) hiện lại khi quét hoặc tải lại dữ liệu. Khối nhập liệu/cấu hình (`fixed`) chỉ thu gọn.
+- Đăng ký khối: `regBlk(id, { scr, title, kind, close, xlsx, reopen, render })` trong `init` của màn.
 
 ### 3.3. Dữ liệu đã quét
 Đã làm: mở lên hiện ngay dữ liệu lần trước kèm "dữ liệu lúc hh:mm ngày dd/mm", nút Tải lại, lưu IndexedDB; Bảng tổng hợp tự cập nhật ngầm nếu dữ liệu cũ hơn 1 giờ.

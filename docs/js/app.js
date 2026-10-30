@@ -1,6 +1,6 @@
 // Khung ứng dụng: menu trái, chuyển màn theo địa chỉ (#quet, #tonghop…), trạng thái tiện ích.
 import { APP_VER, esc } from './core.js';
-import { icon, el, $ } from './ui.js';
+import { icon, el, $, reopenInfo } from './ui.js';
 import { guide } from './huongdan.js';
 import * as B from './bridge.js';
 import { D, on, loadCache } from './data.js';
@@ -48,6 +48,7 @@ const show = id => {
 
 /* Du lieu doi: ve lai man dang mo, danh dau cac man khac de ve lai khi mo */
 ['scan', 'stats', 'hemis', 'filter'].forEach(ev => on(ev, () => {
+  if (ev !== 'filter') reopenInfo();
   SCREENS.forEach(s => { if (!(s.on || []).includes(ev)) return; const r = roots[s.id]; if (!r) return; if (s.id === curId) s.render(); else r.dirty = true; });
   drawNav();
 }));
