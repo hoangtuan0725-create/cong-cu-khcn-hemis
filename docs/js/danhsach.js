@@ -1,22 +1,24 @@
 // Màn "Danh sách bài": danh sách bài báo sau bộ lọc chung, tìm nhanh theo tên bài / tạp chí, tải Excel.
-import { esc, norm, vnDate, fmtTime, downloadCsv } from './core.js';
-import { icon, pill, screenHtml, blk, empty, toast, $ } from './ui.js';
+import { esc, norm, vnDate, fmtTime } from './core.js';
+import { downloadXlsx } from './xlsx.js';
+import { icon, pill, screenHtml, blk, empty, toast, regBlk, createBtn, $ } from './ui.js';
 import { D } from './data.js';
-import { L, comp, artOK, openFilter, chipsHtml, bindChips, nConds } from './loc.js';
+import { filter, setSpec, comp, artOK, openFilter, filterBtn, chipsHtml, bindChips } from './loc.js';
 
 const MAXR = 500;
 let root, q = '', timer = 0;
+const F = filter('danhsach');
 
 const html = () => screenHtml({
   title: 'Danh sách bài',
   acts: '<label class="sel" for="ds-q">' + icon('search') + '<span class="sr">Tìm nhanh</span><input id="ds-q" data-q type="search" placeholder="Tìm tên bài hoặc tạp chí" autocomplete="off"></label>' +
-    '<button class="btn" data-filter>' + icon('filter') + '<span>Bộ lọc</span></button>',
+    createBtn('danhsach'),
   foot: true
 });
 
 /* Cac bai sau bo loc chung va o tim nhanh */
 const pick = () => {
-  const c = comp(L.spec), k = norm(q);
+  const c = comp(F.spec), k = norm(q);
   return D.stats.arts.filter(a => artOK(a, c) && (!k || norm(a.t + ' ' + a.j).includes(k)));
 };
 
@@ -40,18 +42,21 @@ const scr = {
     bindChips(el);
     const qi = $('[data-q]', el);
     qi.value = q;
+    regBlk('ds.bang', {
+      scr: 'danhsach', title: 'Danh sách bài báo', render: () => scr.render(), xlsx: xlsx,
+      close: () => { setSpec(F, {}); q = ''; qi.value = ''; },
+      reopen: done => D.stats && openFilter(F, D.stats.arts, { title: 'Danh sách bài báo', onApply: done })
+    });
     qi.oninput = () => { clearTimeout(timer); timer = setTimeout(() => { q = qi.value; scr.render(); }, 200); };
     el.addEventListener('click', e => {
-      if (e.target.closest('[data-filter]')) { if (D.stats) openFilter(D.stats.arts); else toast('Chưa có dữ liệu. Hãy tải dữ liệu ở màn Bảng tổng hợp trước.', 'err'); return; }
-      if (e.target.closest('[data-csv]')) csv();
+      if (e.target.closest('[data-filter]')) { if (D.stats) openFilter(F, D.stats.arts, { title: 'Danh sách bài báo' }); else toast('Chưa có dữ liệu. Hãy tải dữ liệu ở màn Bảng tổng hợp trước.', 'err'); return; }
+      if (e.target.closest('[data-csv]')) xlsx();
       if (e.target.closest('[data-goto]')) location.hash = '#' + e.target.closest('[data-goto]').dataset.goto;
     });
   },
   render() {
-    const body = $('[data-body]', root), foot = $('[data-foot]', root), sub = $('[data-sub]', root), fb = $('[data-filter]', root);
-    const S = D.stats, n = nConds(L.spec);
-    fb.classList.toggle('on', n > 0);
-    fb.innerHTML = icon('filter') + '<span>Bộ lọc</span>' + (n ? '<span class="badge" aria-label="' + n + ' điều kiện">' + n + '</span>' : '');
+    const body = $('[data-body]', root), foot = $('[data-foot]', root), sub = $('[data-sub]', root);
+    const S = D.stats;
     if (!S) {
       sub.textContent = 'Xem từng bài sau khi lọc theo khoa, bộ môn, loại, năm…';
       body.innerHTML = '<div class="card">' + empty('table', 'Chưa có dữ liệu', 'Danh sách bài dùng chung dữ liệu với màn Bảng tổng hợp. Hãy sang đó chọn khoảng ngày và bấm tải dữ liệu.', '<button class="btn pri" data-goto="tonghop">' + icon('table') + 'Sang Bảng tổng hợp</button>') + '</div>';
@@ -59,23 +64,25 @@ const scr = {
     }
     const L1 = pick();
     sub.textContent = L1.length.toLocaleString('vi-VN') + '/' + S.arts.length.toLocaleString('vi-VN') + ' bài · ' + vnDate(S.f) + ' – ' + vnDate(S.t) + ' · dữ liệu lúc ' + fmtTime(S.at);
-    const chips = chipsHtml();
-    body.innerHTML = blk('ds.bang', 'Danh sách bài báo', (chips ? '<div class="chipbar">' + chips + '</div>' : '') +
+    const chips = chipsHtml(F);
+    body.innerHTML = blk('ds.bang', 'Danh sách bài báo', '<div class="toolbar">' + filterBtn(F) + '</div>' + (chips ? '<div class="chipbar">' + chips + '</div>' : '') +
       '<div class="more">TN = tác giả thứ nhất, LH = tác giả liên hệ. Chữ xám = tác giả ngoài trường hoặc không có tài khoản KHCN.</div>' +
       '<div class="tw"><table class="tbl"><thead><tr><th class="wt">Bài báo</th><th>Loại</th><th>Nhóm</th><th>Q</th><th>Ngày</th><th>Tác giả</th><th>Trạng thái</th></tr></thead><tbody>' +
       (L1.length ? L1.slice(0, MAXR).map(row).join('') : '<tr><td colspan="7">' + empty('search', 'Không có bài nào', 'Thử bỏ bớt điều kiện lọc hoặc đổi từ khoá tìm.') + '</td></tr>') + '</tbody></table></div>' +
-      (L1.length > MAXR ? '<div class="more">Đang hiện ' + MAXR + '/' + L1.length.toLocaleString('vi-VN') + ' bài. Bấm “Tải Excel” để lấy đủ.</div>' : ''),
+      (L1.length > MAXR ? '<div class="more">Đang hiện ' + MAXR + '/' + L1.length.toLocaleString('vi-VN') + ' bài. Bấm Excel ở góc bảng để lấy đủ.</div>' : ''),
       { head: '<span class="muted small">' + L1.length.toLocaleString('vi-VN') + ' bài</span>' });
+    if (!body.querySelector('[data-blk]')) body.innerHTML = '<div class="card">' + empty('table', 'Danh sách đang đóng', 'Bấm “Tạo bảng” ở trên để tạo lại danh sách bài, rồi chọn điều kiện lọc.', '') + '</div>';
     foot.innerHTML = '<span>Đang hiện <b>' + Math.min(L1.length, MAXR).toLocaleString('vi-VN') + '</b>/' + L1.length.toLocaleString('vi-VN') + ' bài</span><div class="sp"></div>' +
       '<button class="btn pri" data-csv' + (L1.length ? '' : ' disabled') + '>' + icon('dl') + 'Tải Excel</button>';
   }
 };
 export default scr;
 
-function csv() {
+/* Xuat Excel day du (khong gioi han 500 dong); so de dang so */
+function xlsx() {
   if (!D.stats) return;
   const L1 = pick();
   const nm = x => x.n + (x.first ? ' [TG thứ nhất]' : '') + (x.corr ? ' [TG liên hệ]' : '') + (x.tlu ? ' (' + x.bm + ' – ' + x.khoa + ')' : ' (ngoài trường)');
-  downloadCsv('Danh sách bài báo KHCN', [['Tên bài', 'Tạp chí / hội nghị', 'Loại công bố', 'Nhóm chỉ số', 'Q', 'IF', 'Điểm HĐCD', 'Ngành HĐCD', 'Ngày công bố', 'Tập', 'Kỳ', 'Trang', 'Tác giả', 'Khoa có tác giả', 'Trạng thái', 'Áp dụng tính', 'Danh mục Bộ KH&CN', 'Loại hỗ trợ kinh phí', 'Giờ khoa học', 'Tiền hỗ trợ']]
-    .concat(L1.map(a => [a.t, a.j, a.l, a.grp, a.q, a.iff || '', a.hdp || '', a.hd, a.d ? vnDate(a.d) : '', a.vol, a.iss, a.pg, a.authors.map(nm).join('; '), [...new Set(a.authors.filter(x => x.tlu).map(x => x.khoa))].join('; '), a.st, a.nc, a.dm, a.ht, a.gio, a.tien])));
+  downloadXlsx('Danh sách bài báo KHCN', { name: 'Danh sách bài', head: 1, freezeCols: 1, rows: [['Tên bài', 'Tạp chí / hội nghị', 'Loại công bố', 'Nhóm chỉ số', 'Q', 'IF', 'Điểm HĐCD', 'Ngành HĐCD', 'Ngày công bố', 'Tập', 'Kỳ', 'Trang', 'Tác giả', 'Khoa có tác giả', 'Trạng thái', 'Áp dụng tính', 'Danh mục Bộ KH&CN', 'Loại hỗ trợ kinh phí', 'Giờ khoa học', 'Tiền hỗ trợ (đồng)']]
+    .concat(L1.map(a => [a.t, a.j, a.l, a.grp, a.q, a.iff || '', a.hdp || '', a.hd, a.d ? vnDate(a.d) : '', a.vol, a.iss, a.pg, a.authors.map(nm).join('; '), [...new Set(a.authors.filter(x => x.tlu).map(x => x.khoa))].join('; '), a.st, a.nc, a.dm, a.ht, a.gioN || '', a.tienN || ''])) });
 }
