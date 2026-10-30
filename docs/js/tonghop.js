@@ -231,7 +231,7 @@ export const drill = (title, list) => {
   const rows = [['Tên bài', 'Tạp chí / hội nghị', 'Loại công bố', 'Q', 'Ngày', 'Tác giả', 'Giờ KH', 'Tiền hỗ trợ', 'Trạng thái']].concat(list.map(a => [a.t, a.j, a.l, a.q, vnDate(a.d), a.authors.map(z => z.n + (z.first ? ' [TG thứ nhất]' : '') + (z.corr ? ' [TG liên hệ]' : '') + (z.tlu ? ' (' + z.khoa + ')' : '')).join(', '), a.gio, a.tien, a.st]));
   const dr = drawer({
     title, wide: true, flush: true, sub: list.length + ' bài · TN = tác giả thứ nhất, LH = tác giả liên hệ, chữ xám = ngoài trường',
-    head: '<button class="btn sm" data-dcsv>' + icon('dl') + 'Excel</button>',
+    head: '<button class="cbtn" data-dcsv title="Xuất Excel" aria-label="Xuất Excel">' + icon('sheet') + '</button>',
     body: '<table class="tbl"><thead><tr><th>Bài báo</th><th>Q</th><th>Ngày</th><th>Trạng thái</th></tr></thead><tbody>' + list.slice(0, 500).map(a => '<tr><td class="t"><b>' + esc(a.t) + '</b><div class="muted">' + esc(a.j) + ' · ' + auHtml(a) + '</div></td><td class="nowrap">' + esc(a.q === 'Không có Q' ? '—' : a.q) + '</td><td class="nowrap">' + esc(vnDate(a.d)) + '</td><td class="nowrap">' + esc(a.st) + '</td></tr>').join('') + '</tbody></table>' + (list.length > 500 ? '<div class="more">Đang hiện 500/' + list.length + ' bài. Bấm Excel để lấy đủ.</div>' : '')
   });
   dr.querySelector('[data-dcsv]').onclick = () => downloadXlsx('Bài trong ô ' + title.slice(0, 60), { name: 'Danh sách bài', rows });

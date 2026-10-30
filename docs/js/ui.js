@@ -37,7 +37,7 @@ export const reopenInfo = () => infoClosed.clear();
 export const blk = (id, title, inner, o = {}) => {
   if (!o.fixed && isClosed(id)) return '';
   const c = isCollapsed(id, o.def) ? ' collapsed' : '', h = H[id] || {};
-  const ctl = (!o.fixed && h.xlsx ? '<button class="btn sm" data-xlsx="' + id + '" title="Xuất Excel (.xlsx)">' + icon('dl') + 'Excel</button>' : '') +
+  const ctl = (!o.fixed && h.xlsx ? '<button class="cbtn" data-xlsx="' + id + '" title="Xuất Excel" aria-label="Xuất Excel ' + esc(title) + '">' + icon('sheet') + '</button>' : '') +
     '<button class="cbtn" data-collapse="' + id + '" aria-expanded="' + !c + '" title="' + (c ? 'Mở rộng' : 'Thu gọn') + '" aria-label="' + (c ? 'Mở rộng ' : 'Thu gọn ') + esc(title) + '">' + icon(c ? 'square' : 'minus') + '</button>' +
     (o.fixed ? '' : '<button class="cbtn" data-close="' + id + '" title="Đóng" aria-label="Đóng ' + esc(title) + '">' + icon('x') + '</button>');
   return '<section class="card blk' + c + '" data-blk="' + id + '"><div class="card-h">' + (o.headHtml || '<b>' + esc(title) + '</b>') + (o.head || '') + '<div class="sp"></div>' + (o.tools || '') + '<span class="bctl">' + ctl + '</span></div><div class="blk-b">' + (o.pad ? '<div class="card-b">' + inner + '</div>' : inner) + '</div></section>';
