@@ -1,0 +1,313 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Mẫu khối đóng và thu gọn</title><style>/* Công cụ KHCN TLU → HEMIS — giao diện theo mẫu đã duyệt (thiết kế/Mẫu giao diện.html) */
+:root {
+  --bg: #F4F6F9; --surface: #FFFFFF; --surface2: #F8FAFC; --text: #0F172A; --text2: #334155; --muted: #64748B; --faint: #94A3B8; --zero: #CBD5E1;
+  --line: #E2E8F0; --line2: #CBD5E1;
+  --pri: #1D4ED8; --pri-hover: #1E40AF; --pri-50: #EFF4FF; --pri-100: #DBE6FE; --pri-text: #1E3A8A;
+  --ok: #15803D; --ok-bg: #DCFCE7; --ok-line: #86EFAC;
+  --warn: #B45309; --warn-bg: #FEF3C7; --warn-line: #FCD34D;
+  --err: #B91C1C; --err-bg: #FEE2E2; --err-line: #FCA5A5;
+  --r: 8px; --r-sm: 6px;
+  --sh: 0 1px 2px rgba(15, 23, 42, .06), 0 1px 3px rgba(15, 23, 42, .08);
+  --sh-lg: -8px 0 24px rgba(15, 23, 42, .12);
+  --font: "Segoe UI", Roboto, Arial, sans-serif;
+  --side-w: 232px;
+}
+* { box-sizing: border-box }
+html, body { height: 100% }
+body { margin: 0; background: var(--bg); font: 14px/1.5 var(--font); color: var(--text) }
+button, input, select, textarea { font: inherit; color: inherit }
+a { color: var(--pri) }
+:focus-visible { outline: 2px solid var(--pri); outline-offset: 2px }
+[hidden] { display: none !important }
+.ic { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; vertical-align: middle }
+.muted { color: var(--muted) }
+.small { font-size: 12px }
+.sp { flex: 1 }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap }
+.nowrap { white-space: nowrap }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important } }
+
+/* ---------- Khung ---------- */
+.app { position: fixed; inset: 0; display: flex; background: var(--bg) }
+.side { width: var(--side-w); background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 16px 12px; flex: none; overflow: auto }
+.brand { display: flex; gap: 10px; align-items: center; padding: 4px 8px 16px }
+.logo { width: 32px; height: 32px; border-radius: 8px; background: var(--pri); color: #fff; display: grid; place-items: center; font-weight: 700; flex: none }
+.brand b { display: block; font-size: 14px } .brand small { color: var(--muted); font-size: 12px }
+.navh { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; padding: 12px 10px 6px }
+.nav a { display: flex; gap: 10px; align-items: center; min-height: 36px; padding: 6px 10px; border-radius: var(--r-sm); color: var(--text2); text-decoration: none; font-weight: 500; margin: 1px 0; cursor: pointer; transition: background .15s }
+.nav a:hover { background: var(--surface2) }
+.nav a .ic { width: 18px; height: 18px }
+.nav a[aria-current="page"] { background: var(--pri-50); color: var(--pri) }
+.nav .cnt { margin-left: auto; font-size: 12px; border-radius: 10px; padding: 0 7px; font-weight: 600; background: var(--err-bg); color: var(--err) }
+.nav .cnt.info { background: var(--pri-100); color: var(--pri) }
+.sfoot { margin-top: auto; border-top: 1px solid var(--line); padding: 12px 8px 0; font-size: 12px; color: var(--muted) }
+.sfoot .row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px }
+.sfoot b { color: var(--text) }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none }
+.dot.ok { background: var(--ok) } .dot.err { background: var(--err) } .dot.warn { background: var(--warn) }
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative }
+.scr { flex: 1; display: flex; flex-direction: column; min-height: 0 }
+.top { display: flex; align-items: center; gap: 12px; padding: 14px 24px; background: var(--surface); border-bottom: 1px solid var(--line); flex-wrap: wrap }
+.top h1 { font-size: 18px; margin: 0; font-weight: 600 }
+.top p { margin: 2px 0 0; color: var(--muted); font-size: 13px }
+.top .acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-left: auto }
+.body { flex: 1; overflow: auto; padding: 20px 24px }
+.foot { display: flex; align-items: center; gap: 12px; padding: 12px 24px; background: var(--surface); border-top: 1px solid var(--line); flex-wrap: wrap }
+.btn.menu-btn { display: none }
+@media (max-width: 900px) {
+  .side { position: fixed; z-index: 40; inset: 0 auto 0 0; transform: translateX(-100%); transition: transform .2s; box-shadow: var(--sh-lg) }
+  .app.nav-open .side { transform: none }
+  .btn.menu-btn { display: inline-flex }
+  .top, .body, .foot { padding-left: 16px; padding-right: 16px }
+}
+
+/* ---------- Nút, ô nhập ---------- */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 14px; border-radius: var(--r-sm); border: 1px solid var(--line2); background: var(--surface); color: var(--text); font-weight: 500; cursor: pointer; white-space: nowrap; transition: background .15s, border-color .15s }
+.btn:hover { background: var(--surface2); border-color: var(--faint) }
+.btn.pri { background: var(--pri); border-color: var(--pri); color: #fff }
+.btn.pri:hover { background: var(--pri-hover); border-color: var(--pri-hover) }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--pri) }
+.btn.ghost:hover { background: var(--pri-50) }
+.btn.danger { background: var(--err); border-color: var(--err); color: #fff }
+.btn.sm { min-height: 32px; padding: 0 10px; font-size: 13px }
+.btn.icon { width: 36px; padding: 0 } .btn.icon.sm { width: 32px }
+.btn[disabled], .btn[aria-disabled="true"] { opacity: .5; cursor: not-allowed }
+.btn .badge { background: var(--pri); color: #fff; border-radius: 9px; padding: 0 6px; font-size: 12px; font-weight: 600; line-height: 18px }
+.btn.on { border-color: var(--pri); background: var(--pri-50); color: var(--pri) }
+.cbtn { width: 32px; height: 32px; border-radius: var(--r-sm); display: inline-grid; place-items: center; color: var(--muted); border: 1px solid transparent; background: transparent; cursor: pointer; flex: none }
+.cbtn:hover { border-color: var(--line2); background: var(--surface2); color: var(--text) }
+.lnk { color: var(--pri); font-weight: 600; text-decoration: none; background: none; border: 0; padding: 4px 0; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; min-height: 32px }
+.lnk:hover { text-decoration: underline }
+.sel { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 4px 0 10px; border: 1px solid var(--line2); border-radius: var(--r-sm); background: var(--surface); font-size: 13px; color: var(--text2) }
+.sel select, .sel input { border: 0; background: transparent; font-weight: 600; color: var(--text); min-height: 32px; padding: 0 4px; cursor: pointer; max-width: 260px }
+.sel input { cursor: text; width: 100px }
+.sel:focus-within { border-color: var(--pri) }
+.sel select:focus-visible, .sel input:focus-visible { outline: none }
+.inp, select.inp { min-height: 36px; border: 1px solid var(--line2); border-radius: var(--r-sm); padding: 0 10px; width: 100%; background: var(--surface); font-size: 14px }
+.inp:focus { border-color: var(--pri); outline: none; box-shadow: 0 0 0 3px var(--pri-100) }
+.inp.num, input.num { text-align: right; font-variant-numeric: tabular-nums }
+.chk { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; cursor: pointer; font-size: 13px; color: var(--text2) }
+.chk input { width: 16px; height: 16px; accent-color: var(--pri); cursor: pointer }
+.fl { margin-bottom: 14px }
+.fl > label, .fl > .lbl { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px }
+.fl .hint { font-size: 12px; color: var(--muted); margin-top: 4px }
+.seg { display: flex; border: 1px solid var(--line2); border-radius: var(--r-sm); overflow: hidden; flex-wrap: wrap }
+.seg button { flex: 1; min-height: 32px; padding: 0 8px; font-size: 12px; border: 0; border-right: 1px solid var(--line2); background: var(--surface); cursor: pointer }
+.seg button:last-child { border-right: 0 }
+.seg button[aria-pressed="true"] { background: var(--pri); color: #fff }
+
+/* ---------- Thẻ, khối thu gọn ---------- */
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--sh) }
+.body > .card + .card, .body > .blk + .blk, .body > .card + .blk, .body > .blk + .card, .body > .grid2 + .card, .body > .card + .grid2 { margin-top: 16px }
+.blk-h { display: flex; align-items: center; gap: 8px; margin: 0 0 8px }
+.blk-h > b { font-size: 13px; color: var(--text2) }
+.blk-h .ln { flex: 1; height: 1px; background: var(--line) }
+.blk.collapsed > .blk-b { display: none }
+.blk.collapsed > .blk-h { margin-bottom: 0 }
+.cbtn .ic { transition: transform .15s }
+.collapsed > .blk-h .cbtn .ic, .collapsed > .card-h .cbtn .ic { transform: rotate(180deg) }
+.card.blk > .card-h { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; min-height: 48px }
+.card.blk.collapsed > .card-h { border-bottom: 0 }
+.card-h > b { font-size: 14px }
+.card-b { padding: 16px }
+.card-h .tabs { border-bottom: 0; padding: 0; margin: -8px 0 }
+
+/* ---------- Tổng quan số ---------- */
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px }
+.stats.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)) }
+@media (max-width: 1100px) { .stats, .stats.c3 { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
+.stat { padding: 14px 16px }
+.stat .k { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 6px }
+.stat .v { font-size: 26px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums }
+.stat .h { font-size: 12px; color: var(--muted) }
+.stat.err { border-color: var(--err-line) } .stat.err .v, .stat.err .k .ic { color: var(--err) }
+.stat.warn .k .ic { color: var(--warn) } .stat.ok .k .ic { color: var(--ok) }
+.stat.pri { border-color: var(--pri-100) } .stat.pri .v, .stat.pri .k .ic { color: var(--pri) }
+
+/* ---------- Các bước ---------- */
+.steps { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap }
+.st { display: flex; align-items: center; gap: 8px; color: var(--muted); font-weight: 500 }
+.st i { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line2); display: grid; place-items: center; font-style: normal; font-size: 12px }
+.st i .ic { width: 12px; height: 12px }
+.st.done i { background: var(--ok); border-color: var(--ok); color: #fff }
+.st.now { color: var(--pri) } .st.now i { border-color: var(--pri); color: var(--pri) }
+.steps .bar { width: 40px; height: 2px; background: var(--line2) }
+
+/* ---------- Thanh công cụ, nhãn ---------- */
+.toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 16px; border-bottom: 1px solid var(--line) }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center }
+.chipbar { padding: 8px 16px; border-bottom: 1px solid var(--line) }
+.chip { display: inline-flex; gap: 6px; align-items: center; min-height: 28px; padding: 2px 4px 2px 10px; border-radius: 14px; background: var(--pri-50); color: var(--pri); font-size: 13px; font-weight: 500; max-width: 100%; white-space: normal; line-height: 1.35; border: 1px solid transparent }
+.chip > span { overflow-wrap: anywhere }
+.chip button { border: 0; background: transparent; color: inherit; width: 24px; height: 24px; border-radius: 12px; display: grid; place-items: center; cursor: pointer; flex: none }
+.chip button:hover { background: var(--pri-100) }
+.chip.opt { background: var(--surface2); color: var(--text2); border-color: var(--line); cursor: pointer; padding-right: 10px }
+.chip.opt[aria-pressed="true"] { background: var(--pri-50); color: var(--pri); border-color: var(--pri-100) }
+
+/* ---------- Tab ---------- */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); padding: 0 16px; flex-wrap: wrap; align-items: center }
+.tab { padding: 10px 12px; min-height: 44px; color: var(--muted); font-weight: 500; border: 0; border-bottom: 2px solid transparent; background: none; cursor: pointer }
+.tab:hover { color: var(--text) }
+.tab[aria-selected="true"] { color: var(--pri); border-bottom-color: var(--pri) }
+
+/* ---------- Bảng ---------- */
+.tw { overflow: auto; max-height: 70vh }
+table.tbl { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px }
+.tbl th { position: sticky; top: 0; z-index: 1; background: var(--surface2); color: var(--text2); font-weight: 600; text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap }
+.tbl td { padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top }
+.tbl tbody tr:hover td { background: #F8FAFF }
+.tbl .num, .num { text-align: right; font-variant-numeric: tabular-nums }
+.tbl .z { color: var(--zero) }
+.tbl th.grp { text-align: center; border-left: 1px solid var(--line) }
+.tbl .bl { border-left: 1px solid var(--line) }
+.tbl tr.sub td { background: #FAFBFC; font-weight: 600 }
+.tbl tr.tot td { background: var(--pri-50); font-weight: 700; border-top: 1px solid var(--pri-100) }
+.tbl td.t b { font-weight: 600 }
+.tbl td.t .muted { font-size: 12px }
+.tbl td.ck, .tbl th.ck { width: 36px; text-align: center }
+.tbl input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--pri); cursor: pointer }
+.tbl td.cell { cursor: pointer }
+.tbl td.cell:hover { background: var(--pri-50) !important; color: var(--pri) }
+.tbl .stick { position: sticky; left: 0; z-index: 1; background: var(--surface) }
+.tbl th.stick { z-index: 2; background: var(--surface2) }
+.tbl tr.sub td.stick { background: #FAFBFC } .tbl tr.tot td.stick { background: var(--pri-50) }
+.tog { border: 0; background: none; cursor: pointer; width: 24px; height: 24px; display: inline-grid; place-items: center; border-radius: 4px; color: var(--muted); vertical-align: middle; margin-right: 2px }
+.tog:hover { background: var(--line) }
+.more { padding: 10px 16px; color: var(--muted); font-size: 13px }
+
+/* ---------- Nhãn trạng thái ---------- */
+.pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; line-height: 1.5; margin: 1px 2px 1px 0 }
+.pill .ic { width: 12px; height: 12px; stroke-width: 2.5 }
+.pill.ok { background: var(--ok-bg); color: var(--ok) } .pill.warn { background: var(--warn-bg); color: var(--warn) }
+.pill.err { background: var(--err-bg); color: var(--err) } .pill.mut { background: #F1F5F9; color: var(--muted) }
+.pill.info { background: var(--pri-50); color: var(--pri) }
+
+/* ---------- Thông báo ---------- */
+.note { display: flex; gap: 10px; padding: 10px 14px; border-radius: var(--r); background: var(--pri-50); color: var(--pri-text); font-size: 13px; margin-bottom: 16px; align-items: flex-start }
+.note .ic { margin-top: 2px }
+.note.warn { background: var(--warn-bg); color: #78350F } .note.err { background: var(--err-bg); color: #7F1D1D } .note.ok { background: var(--ok-bg); color: #14532D }
+.busy { display: flex; align-items: center; gap: 10px; padding: 8px 24px; background: var(--pri-50); color: var(--pri-text); font-size: 13px; border-bottom: 1px solid var(--pri-100) }
+.spin { width: 16px; height: 16px; border: 2px solid var(--pri-100); border-top-color: var(--pri); border-radius: 50%; animation: spin .8s linear infinite; flex: none }
+@keyframes spin { to { transform: rotate(360deg) } }
+.empty { text-align: center; padding: 48px 16px; color: var(--muted) }
+.empty .ic { width: 40px; height: 40px; color: var(--faint); stroke-width: 1.5 }
+.empty h3 { color: var(--text); margin: 12px 0 4px; font-size: 16px }
+.empty p { margin: 0 auto 16px; max-width: 520px }
+
+/* ---------- Thước đo, KPI ---------- */
+.grid2 { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; margin-top: 16px }
+@media (max-width: 1100px) { .grid2 { grid-template-columns: minmax(0, 1fr) } }
+.kpi { padding: 16px }
+.kpi .kh { display: flex; align-items: flex-start; gap: 8px }
+.kpi h3 { margin: 0 0 4px; font-size: 14px; flex: 1 }
+.kpi .big { font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums }
+.meter { height: 8px; border-radius: 4px; background: #EEF2F7; margin: 10px 0 4px; position: relative }
+.meter span { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--pri) }
+.meter span.ok { background: var(--ok) } .meter span.err { background: var(--err) }
+.meter i { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--text) }
+
+/* ---------- Bảng trượt phải, hộp thoại, thông báo nhanh ---------- */
+.scrim { position: fixed; inset: 0; background: rgba(15, 23, 42, .25); z-index: 50 }
+.drawer { position: fixed; right: 0; top: 0; bottom: 0; width: min(380px, 100vw); background: var(--surface); border-left: 1px solid var(--line); box-shadow: var(--sh-lg); display: flex; flex-direction: column; z-index: 51 }
+.drawer.wide { width: min(640px, 100vw) }
+.drawer .dh { padding: 14px 16px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px }
+.drawer .dh h2 { font-size: 16px; margin: 0 }
+.drawer .db { padding: 16px; overflow: auto; flex: 1 }
+.drawer .db.flush { padding: 0 }
+.drawer .df { padding: 12px 16px; border-top: 1px solid var(--line); display: flex; gap: 8px }
+.drawer .df .btn { flex: 1 }
+dialog.dlg { border: 0; border-radius: 12px; padding: 0; width: min(480px, calc(100vw - 32px)); box-shadow: 0 20px 60px rgba(15, 23, 42, .35); color: var(--text) }
+dialog.dlg::backdrop { background: rgba(15, 23, 42, .35) }
+.dlg .dh { padding: 16px 20px 0; font-size: 16px; font-weight: 600 }
+.dlg .db { padding: 8px 20px 16px; color: var(--text2); white-space: pre-line }
+.dlg .db .inp { margin-top: 10px }
+.dlg .df { padding: 12px 20px; display: flex; gap: 8px; justify-content: flex-end; background: var(--surface2); border-top: 1px solid var(--line) }
+.toasts { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 60; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none }
+.toast { background: var(--text); color: #fff; padding: 10px 16px; border-radius: var(--r); font-size: 13px; box-shadow: var(--sh); display: flex; gap: 8px; align-items: center; max-width: 90vw }
+.toast.err { background: var(--err) }
+.pop { position: absolute; z-index: 30; background: var(--surface); border: 1px solid var(--line2); border-radius: var(--r); box-shadow: 0 8px 24px rgba(15, 23, 42, .16); padding: 8px; min-width: 220px }
+.optlist { max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: var(--r-sm); margin-top: 6px }
+.optlist label { display: flex; gap: 8px; align-items: flex-start; padding: 6px 10px; cursor: pointer; font-size: 13px }
+.optlist label:hover { background: var(--surface2) }
+.optlist label .c { margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; padding-left: 8px }
+.optlist input { margin-top: 3px; accent-color: var(--pri) }
+details.fgrp { border: 1px solid var(--line); border-radius: var(--r-sm); margin-bottom: 8px }
+details.fgrp > summary { list-style: none; display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 10px; cursor: pointer; font-weight: 600; font-size: 13px; color: var(--text2) }
+details.fgrp > summary::-webkit-details-marker { display: none }
+details.fgrp > summary .v { margin-left: auto; font-weight: 500; color: var(--muted); max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+details.fgrp > summary .v.on { color: var(--pri) }
+details.fgrp[open] > summary .ic { transform: rotate(180deg) }
+details.fgrp > .fgb { padding: 0 10px 10px }
+
+/* ---------- Bảng tổng hợp ---------- */
+.tbl.pv { width: auto; min-width: 100% }
+.tbl.pv thead { position: sticky; top: 0; z-index: 3 }
+.tbl.pv thead th { position: static; background: var(--surface2) }
+.tbl.pv thead th.grp { text-align: left }
+.tbl.pv thead th.stick { position: sticky; left: 0; z-index: 4 }
+.tbl.pv td.lab { white-space: nowrap; min-width: 220px }
+.tbl.pv th.num, .tbl.pv td.num { min-width: 64px }
+.pvinfo { padding: 8px 16px; font-size: 12px; color: var(--muted); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; border-bottom: 1px solid var(--line) }
+.selrow { display: inline-flex; align-items: center; gap: 2px }
+.selrow .ic { color: var(--faint); width: 14px; height: 14px }
+.au-tn, .au-lh { font-size: 11px; font-weight: 600; color: var(--pri); margin-left: 2px }
+.au-ext { color: var(--muted) }
+.tplitem { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--line); background: var(--surface2); border-radius: 14px; padding: 2px 4px 2px 10px; font-size: 13px }
+.tplitem button { border: 0; background: none; width: 26px; height: 26px; border-radius: 13px; display: grid; place-items: center; cursor: pointer; color: var(--muted) }
+.tplitem button:hover { background: var(--line); color: var(--text) }
+.tplitem .nm { cursor: pointer; text-decoration: underline dotted; padding: 0 4px; background: none; border: 0; font: inherit; color: var(--text) }
+button.sel { cursor: pointer }
+.seg.g3 { display: grid; grid-template-columns: repeat(3, 1fr) }
+.seg.g3 button:nth-child(-n+3) { border-bottom: 1px solid var(--line2) }
+.seg.g3 button:nth-child(3n) { border-right: 0 }
+
+/* ---------- Màn HEMIS, Danh sách (Sonnet) ---------- */
+.tbl th.wt { width: 38% }
+.tbl td.au { min-width: 240px }
+.sel input[type=search] { width: 220px }
+.sel input[type=search]::-webkit-search-cancel-button { cursor: pointer }
+.foot .meter { width: 220px; margin: 0 }
+.tbl .was { color: var(--err) }
+.tbl .will { color: var(--ok) }
+.tbl .cell-in { min-height: 32px; width: 92px; padding: 0 8px }
+.tbl .cell-in.w { width: 140px }
+.meter i.thr { left: 60% }
+.grid2 > .card { margin-top: 0 }
+.toolbar .chk { margin-right: 12px }
+.tbl tr:has(.cell-in) td { vertical-align: middle }
+
+body{background:#E5E7EB;padding:16px}
+.frame{width:1440px;margin:0 auto 24px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,.2)}
+.frame .app{position:relative;height:720px}
+.mnote{padding:14px 20px;background:#FFFBEB;border-top:1px solid #FCD34D;font-size:14px;color:#78350F}
+.card-h .cbtn+.cbtn{margin-left:-4px}
+</style></head><body><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></symbol>
+<symbol id="i-table" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10M15 10v10"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+<symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="i-gauge" viewBox="0 0 24 24"><path d="M12 14l4-4"/><path d="M3.3 19a9 9 0 1 1 17.4 0"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+<symbol id="i-filter" viewBox="0 0 24 24"><path d="M22 3H2l8 9.5V19l4 2v-8.5z"/></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+<symbol id="i-dl" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+<symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+<symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+<symbol id="i-up2" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+<symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+<symbol id="i-ext" viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></symbol>
+<symbol id="i-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></symbol>
+<symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+<symbol id="i-plug" viewBox="0 0 24 24"><path d="M12 22v-5M9 8V2M15 8V2M18 8v5a6 6 0 0 1-12 0V8z"/></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+<symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol><symbol id="i-square" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/></symbol></defs></svg><div class="frame" id="f1"><div class="app"><aside class="side"><div class="brand"><div class="logo">K</div><div><b>KHCN → HEMIS</b><small>Phòng KHCN&amp;HTQT</small></div></div><div class="navh">Dữ liệu KHCN</div><nav class="nav"><a><svg class="ic" aria-hidden="true"><use href="#i-scan"/></svg><span>Quét &amp; kiểm tra</span></a><a aria-current="page"><svg class="ic" aria-hidden="true"><use href="#i-table"/></svg><span>Bảng tổng hợp</span></a><a><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg><span>Danh sách bài</span></a></nav><div class="navh">HEMIS</div><nav class="nav"><a><svg class="ic" aria-hidden="true"><use href="#i-up"/></svg><span>Đẩy lên HEMIS</span></a><a><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><span>Rà soát bài đã có</span></a><a><svg class="ic" aria-hidden="true"><use href="#i-gauge"/></svg><span>Chỉ số TT 83</span></a></nav></aside><main class="main"><div class="scr"><div class="top"><div><h1>Bảng tổng hợp</h1><p>400 bài · 01/01/2021 – 31/12/2026 · dữ liệu lúc 08:42 ngày 30/10</p></div><div class="acts"><button class="btn"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Tạo bảng<svg class="ic" aria-hidden="true"><use href="#i-down"/></svg></button><button class="btn"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg>Tải lại</button><button class="btn pri"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>Sao chép bảng</button></div></div><div class="body"><section class="card blk"><div class="card-h"><b>Bảng tổng hợp nhiều tầng</b><div class="sp"></div><span class="muted small">Bấm vào số để xem danh sách bài</span><button class="cbtn" title="Thu gọn"><svg class="ic" aria-hidden="true"><use href="#i-minus"/></svg></button><button class="cbtn" title="Đóng"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></div><div class="blk-b"><div class="toolbar"><label class="sel">Mẫu <select><option>Khoa × (Năm → 14 loại)</option></select></label><span class="sel">Hàng <b>Khoa / đơn vị</b></span><span class="sel">Cột <b>Năm → Loại công bố</b></span><button class="btn on"><svg class="ic" aria-hidden="true"><use href="#i-filter"/></svg>Bộ lọc <span class="badge">2</span></button></div><div class="chipbar"><div class="chips"><span class="chip"><span>Nhóm chỉ số TT 83: WoS/Scopus</span><button><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></span><span class="chip"><span>Vai trò: Tác giả liên hệ</span><button><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></span><button class="lnk">Xoá lọc</button></div></div><div class="tw"><table class="tbl pv"><thead><tr><th class="stick">Khoa / đơn vị</th><th class="num">SCIE</th><th class="num">Scopus</th><th class="num">HĐGSNN</th><th class="num">Kỷ yếu ISI/Scopus</th><th class="num">Kỷ yếu khác</th></tr></thead><tbody><tr><td class="stick lab">Khoa CNTT</td><td class="num">5</td><td class="num">5</td><td class="num">8</td><td class="num">9</td><td class="num">3</td></tr><tr><td class="stick lab">Khoa Công trình</td><td class="num">6</td><td class="num">5</td><td class="num">9</td><td class="num">5</td><td class="num z">0</td></tr><tr><td class="stick lab">Khoa Cơ khí</td><td class="num">7</td><td class="num">6</td><td class="num">8</td><td class="num">10</td><td class="num">2</td></tr><tr><td class="stick lab">Khoa Kinh tế và Quản lý</td><td class="num">9</td><td class="num">8</td><td class="num">5</td><td class="num">7</td><td class="num">1</td></tr><tr class="tot"><td class="stick lab">Toàn trường</td><td class="num">27</td><td class="num">24</td><td class="num">30</td><td class="num">31</td><td class="num">6</td></tr></tbody></table></div></div></section><section class="card blk collapsed"><div class="card-h"><b>Bảng một chiều</b><div class="sp"></div><span class="muted small">đang thu gọn · bộ lọc riêng vẫn giữ (1 điều kiện)</span><button class="cbtn" title="Mở rộng"><svg class="ic" aria-hidden="true"><use href="#i-square"/></svg></button><button class="cbtn" title="Đóng"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></div><div class="blk-b"></div></section></div></div></main></div><div class="mnote"><b>Mẫu A.</b> Mỗi khối có 2 nút ở góc phải như cửa sổ Windows: <b>—</b> thu gọn (chỉ ẩn, bộ lọc giữ nguyên; khi đã thu gọn nút đổi thành <b>□</b> để mở rộng), <b>X</b> đóng hẳn (bỏ luôn bộ lọc và cách sắp xếp của bảng đó). Mỗi bảng có nút Bộ lọc riêng.</div></div><div class="frame" id="f2"><div class="app"><aside class="side"><div class="brand"><div class="logo">K</div><div><b>KHCN → HEMIS</b><small>Phòng KHCN&amp;HTQT</small></div></div><div class="navh">Dữ liệu KHCN</div><nav class="nav"><a><svg class="ic" aria-hidden="true"><use href="#i-scan"/></svg><span>Quét &amp; kiểm tra</span></a><a aria-current="page"><svg class="ic" aria-hidden="true"><use href="#i-table"/></svg><span>Bảng tổng hợp</span></a><a><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg><span>Danh sách bài</span></a></nav><div class="navh">HEMIS</div><nav class="nav"><a><svg class="ic" aria-hidden="true"><use href="#i-up"/></svg><span>Đẩy lên HEMIS</span></a><a><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><span>Rà soát bài đã có</span></a><a><svg class="ic" aria-hidden="true"><use href="#i-gauge"/></svg><span>Chỉ số TT 83</span></a></nav></aside><main class="main"><div class="scr"><div class="top"><div><h1>Bảng tổng hợp</h1><p>400 bài · 01/01/2021 – 31/12/2026 · dữ liệu lúc 08:42 ngày 30/10</p></div><div class="acts"><button class="btn on"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Tạo bảng<svg class="ic" aria-hidden="true"><use href="#i-down"/></svg></button><button class="btn"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg>Tải lại</button><button class="btn pri"><svg class="ic" aria-hidden="true"><use href="#i-copy"/></svg>Sao chép bảng</button></div></div><div class="body"><section class="card blk"><div class="card-h"><b>Bảng tổng hợp nhiều tầng</b><div class="sp"></div><button class="cbtn" title="Thu gọn"><svg class="ic" aria-hidden="true"><use href="#i-minus"/></svg></button><button class="cbtn" title="Đóng"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></div><div class="blk-b"><div class="toolbar"><label class="sel">Mẫu <select><option>Khoa × (Năm → 14 loại)</option></select></label><span class="sel">Hàng <b>Khoa / đơn vị</b></span><span class="sel">Cột <b>Năm → Loại công bố</b></span><button class="btn on"><svg class="ic" aria-hidden="true"><use href="#i-filter"/></svg>Bộ lọc <span class="badge">2</span></button></div><div class="chipbar"><div class="chips"><span class="chip"><span>Nhóm chỉ số TT 83: WoS/Scopus</span><button><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></span><span class="chip"><span>Vai trò: Tác giả liên hệ</span><button><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></span><button class="lnk">Xoá lọc</button></div></div><div class="tw"><table class="tbl pv"><thead><tr><th class="stick">Khoa / đơn vị</th><th class="num">SCIE</th><th class="num">Scopus</th><th class="num">HĐGSNN</th><th class="num">Kỷ yếu ISI/Scopus</th><th class="num">Kỷ yếu khác</th></tr></thead><tbody><tr><td class="stick lab">Khoa CNTT</td><td class="num">5</td><td class="num">5</td><td class="num">8</td><td class="num">9</td><td class="num">3</td></tr><tr><td class="stick lab">Khoa Công trình</td><td class="num">6</td><td class="num">5</td><td class="num">9</td><td class="num">5</td><td class="num z">0</td></tr><tr><td class="stick lab">Khoa Cơ khí</td><td class="num">7</td><td class="num">6</td><td class="num">8</td><td class="num">10</td><td class="num">2</td></tr><tr><td class="stick lab">Khoa Kinh tế và Quản lý</td><td class="num">9</td><td class="num">8</td><td class="num">5</td><td class="num">7</td><td class="num">1</td></tr><tr class="tot"><td class="stick lab">Toàn trường</td><td class="num">27</td><td class="num">24</td><td class="num">30</td><td class="num">31</td><td class="num">6</td></tr></tbody></table></div></div></section></div></div><div class="pop" style="position:absolute;top:62px;right:250px;width:300px"><div class="muted small" style="padding:4px 8px 8px">Chọn bảng để tạo lại. Bảng mở ra ở trạng thái mới, kèm bảng Bộ lọc để lọc lại.</div><button class="btn ghost" style="width:100%;justify-content:flex-start"><svg class="ic" aria-hidden="true"><use href="#i-table"/></svg>Bảng một chiều</button><button class="btn ghost" style="width:100%;justify-content:flex-start;opacity:.5" disabled><svg class="ic" aria-hidden="true"><use href="#i-table"/></svg>Bảng tổng hợp nhiều tầng (đang mở)</button></div></main></div><div class="mnote"><b>Mẫu B.</b> Đã bấm <b>X</b> ở Bảng một chiều: khối biến mất hẳn, bộ lọc của nó bị bỏ. Muốn có lại thì bấm <b>Tạo bảng</b> → chọn bảng → lọc lại → Áp dụng.</div></div><div class="frame" id="f3"><div class="app"><aside class="side"><div class="brand"><div class="logo">K</div><div><b>KHCN → HEMIS</b><small>Phòng KHCN&amp;HTQT</small></div></div><div class="navh">Dữ liệu KHCN</div><nav class="nav"><a aria-current="page"><svg class="ic" aria-hidden="true"><use href="#i-scan"/></svg><span>Quét &amp; kiểm tra</span></a><a><svg class="ic" aria-hidden="true"><use href="#i-table"/></svg><span>Bảng tổng hợp</span></a><a><svg class="ic" aria-hidden="true"><use href="#i-list"/></svg><span>Danh sách bài</span></a></nav><div class="navh">HEMIS</div><nav class="nav"><a><svg class="ic" aria-hidden="true"><use href="#i-up"/></svg><span>Đẩy lên HEMIS</span></a><a><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><span>Rà soát bài đã có</span></a><a><svg class="ic" aria-hidden="true"><use href="#i-gauge"/></svg><span>Chỉ số TT 83</span></a></nav></aside><main class="main"><div class="scr"><div class="top"><div><h1>Quét &amp; kiểm tra</h1><p>612 bài · 01/01/2026 – 31/12/2026 · dữ liệu quét lúc 08:30 ngày 30/10</p></div><div class="acts"><label class="sel">Năm báo cáo <select><option>2026</option></select></label><button class="btn"><svg class="ic" aria-hidden="true"><use href="#i-plus"/></svg>Tạo bảng<svg class="ic" aria-hidden="true"><use href="#i-down"/></svg></button><button class="btn"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg>Quét lại</button></div></div><div class="body"><div class="steps"><div class="st done"><i><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg></i>Quét KHCN</div><div class="bar"></div><div class="st now"><i>2</i>Sửa bài thiếu</div><div class="bar"></div><div class="st"><i>3</i>Đẩy lên HEMIS</div></div><section class="card blk"><div class="card-h"><b>Tổng quan</b><div class="sp"></div><button class="cbtn" title="Thu gọn"><svg class="ic" aria-hidden="true"><use href="#i-minus"/></svg></button><button class="cbtn" title="Đóng"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></div><div class="blk-b"><div class="card-b"><div class="stats"><div class="card stat"><div class="k">Tổng số bài</div><div class="v">612</div><div class="h">01/01 – 31/12/2026</div></div><div class="card stat ok"><div class="k"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>Đủ thông tin</div><div class="v">471</div><div class="h">Sẵn sàng đẩy</div></div><div class="card stat err"><div class="k"><svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg>Thiếu bắt buộc</div><div class="v">8</div><div class="h">Phải sửa trước khi đẩy</div></div><div class="card stat warn"><div class="k"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg>Nên bổ sung</div><div class="v">133</div><div class="h">Q, tập/số, trang, tên tạp chí</div></div></div><div class="note" style="margin:12px 0 0"><svg class="ic" aria-hidden="true"><use href="#i-info"/></svg><div>Tạp chí trong nước so với danh mục Bộ KH&amp;CN: <b>214</b> đúng tên · <b>41</b> gần đúng · <b>12</b> không có.</div></div></div></div></section><section class="card blk"><div class="card-h"><div class="tabs" role="tablist" style="padding:0;border:0;margin:-8px 0"><button class="tab" aria-selected="true">Thiếu bắt buộc (8)</button><button class="tab">Tên tạp chí gần đúng (41)</button><button class="tab">Nên bổ sung (92)</button><button class="tab">Tất cả (612)</button></div><div class="sp"></div><button class="cbtn" title="Thu gọn"><svg class="ic" aria-hidden="true"><use href="#i-minus"/></svg></button><button class="cbtn" title="Đóng"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg></button></div><div class="blk-b"><div class="tw"><table class="tbl"><thead><tr><th style="width:40%">Bài báo</th><th>Loại</th><th>Ngày</th><th>Vấn đề</th><th></th></tr></thead><tbody><tr><td class="t"><b>Ứng dụng học sâu dự báo mực nước sông Hồng</b><div class="muted">(chưa có tên tạp chí)</div></td><td>Trong nước</td><td>12/03/2026</td><td><span class="pill err"><svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg>Thiếu tên tạp chí</span></td><td class="num"><button class="lnk">Sửa trên KHCN<svg class="ic" aria-hidden="true"><use href="#i-ext"/></svg></button></td></tr><tr><td class="t"><b>Đánh giá độ bền bê tông tro bay trong môi trường mặn</b><div class="muted">Tạp chí KHKT Thủy lợi &amp; MT</div></td><td>Không rõ</td><td>—</td><td><span class="pill err"><svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg>Thiếu ngày công bố</span></td><td class="num"><button class="lnk">Sửa trên KHCN<svg class="ic" aria-hidden="true"><use href="#i-ext"/></svg></button></td></tr></tbody></table></div></div></section></div></div></main></div><div class="mnote"><b>Mẫu C.</b> Kết quả không phải bảng (các ô số tổng quan, dòng so danh mục) cũng gom vào một khối có <b>—</b> và <b>X</b>. Áp dụng cho mọi kết quả ở cả 6 màn. Khối không có bộ lọc (như Tổng quan) bấm X thì đóng; quét lại hoặc tải lại dữ liệu thì hiện lại.</div></div></body></html>

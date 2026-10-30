@@ -1,6 +1,7 @@
 // Màn "Quét & kiểm tra": quét năm báo cáo trên KHCN, báo bài thiếu trường, so tên tạp chí với danh mục Bộ KH&CN.
-import { esc, norm, MAP, QM, matchDM, shortType, vnDate, fmtTime, toISO, downloadCsv } from './core.js';
-import { icon, pill, screenHtml, blk, tabsHtml, steps, empty, ask, toast, $ } from './ui.js';
+import { esc, norm, MAP, QM, matchDM, shortType, vnDate, fmtTime, toISO } from './core.js';
+import { downloadXlsx } from './xlsx.js';
+import { icon, pill, screenHtml, blk, tabsHtml, steps, empty, ask, toast, regBlk, createBtn, $ } from './ui.js';
 import * as B from './bridge.js';
 import { D, scan } from './data.js';
 import { guide } from './huongdan.js';
@@ -30,7 +31,7 @@ const html = () => screenHtml({
   title: 'Quét & kiểm tra',
   acts: '<label class="sel">Năm báo cáo <select data-yr>' + [Y + 1, Y, Y - 1, Y - 2, Y - 3].map(y => '<option value="' + y + '">' + y + '</option>').join('') + '<option value="">Tự chọn ngày</option></select></label>' +
     '<span class="sel" data-range><label for="q-f" class="sr">Từ ngày</label><input id="q-f" data-f placeholder="dd/mm/yyyy"> – <label for="q-t" class="sr">Đến ngày</label><input id="q-t" data-t placeholder="dd/mm/yyyy"></span>' +
-    '<button class="btn" data-scan>' + icon('refresh') + '<span>Quét</span></button>',
+    createBtn('quet') + '<button class="btn" data-scan>' + icon('refresh') + '<span>Quét</span></button>',
   foot: true
 });
 
@@ -39,6 +40,8 @@ const scr = {
   badge: () => { if (!D.scan) return null; const n = check(D.scan.recs).filter(x => x.miss.length).length; return n ? { n, label: n + ' bài thiếu bắt buộc' } : null; },
   init(el) {
     root = el; el.innerHTML = html();
+    regBlk('quet.tongquan', { scr: 'quet', kind: 'info', title: 'Tổng quan', render: () => scr.render(), xlsx: xTong });
+    regBlk('quet.bang', { scr: 'quet', title: 'Danh sách bài cần kiểm tra', render: () => scr.render(), xlsx: () => xBang(tab), close: () => { tab = 'must'; } });
     if (D.scan) { f = vnDate(D.scan.f); t = vnDate(D.scan.t); yr = D.scan.f.slice(5) === '01-01' && D.scan.t.slice(5) === '12-31' && D.scan.f.slice(0, 4) === D.scan.t.slice(0, 4) ? D.scan.f.slice(0, 4) : ''; }
     const ys = $('[data-yr]', el), fi = $('[data-f]', el), ti = $('[data-t]', el);
     ys.value = yr; fi.value = f; ti.value = t;
@@ -82,11 +85,12 @@ const scr = {
         '<div class="card stat ok"><div class="k">' + icon('check') + 'Đủ thông tin</div><div class="v">' + okN.toLocaleString('vi-VN') + '</div><div class="h">Sẵn sàng đẩy</div></div>' +
         '<div class="card stat' + (must.length ? ' err' : '') + '"><div class="k">' + icon('alert') + 'Thiếu bắt buộc</div><div class="v">' + must.length + '</div><div class="h">Phải sửa trước khi đẩy</div></div>' +
         '<div class="card stat warn"><div class="k">' + icon('info') + 'Nên bổ sung</div><div class="v">' + softAll.length + '</div><div class="h">Q, tập/số, trang, tên tạp chí</div></div></div>' +
-        '<div class="note" style="margin:12px 0 0">' + icon('info') + '<div>Tạp chí trong nước so với Danh mục tạp chí đạt tiêu chuẩn của Bộ KH&amp;CN (QĐ 2244/QĐ-BKHCN): <b>' + dmC.ok + '</b> bài đúng tên · <b>' + dmC.near + '</b> bài tên gần đúng (nên sửa tên trên KHCN) · <b>' + dmC.no + '</b> bài không tìm thấy trong danh mục.</div></div>', { card: false }) +
+        '<div class="note" style="margin:12px 0 0">' + icon('info') + '<div>Tạp chí trong nước so với Danh mục tạp chí đạt tiêu chuẩn của Bộ KH&amp;CN (QĐ 2244/QĐ-BKHCN): <b>' + dmC.ok + '</b> bài đúng tên · <b>' + dmC.near + '</b> bài tên gần đúng (nên sửa tên trên KHCN) · <b>' + dmC.no + '</b> bài không tìm thấy trong danh mục.</div></div>', { pad: true }) +
       blk('quet.bang', 'Danh sách bài', '<div class="tw"><table class="tbl"><thead><tr><th style="width:40%">Bài báo</th><th>Loại</th><th>Ngày</th><th>Vấn đề</th><th class="num"><span class="sr">Thao tác</span></th></tr></thead><tbody>' +
         (L.length ? L.slice(0, MAXR).map(row).join('') : '<tr><td colspan="5">' + empty('check', 'Không có bài nào trong mục này', '') + '</td></tr>') + '</tbody></table></div>' +
-        (L.length > MAXR ? '<div class="more">Đang hiện ' + MAXR + '/' + L.length + ' bài. Bấm “Tải danh sách cần sửa” để lấy đủ.</div>' : ''),
+        (L.length > MAXR ? '<div class="more">Đang hiện ' + MAXR + '/' + L.length + ' bài. Bấm Excel ở góc bảng để lấy đủ.</div>' : ''),
         { headHtml: tabsHtml([['must', 'Thiếu bắt buộc (' + must.length + ')'], ['near', 'Tên tạp chí gần đúng (' + near.length + ')'], ['soft', 'Nên bổ sung (' + soft.length + ')'], ['all', 'Tất cả (' + all.length + ')']], tab) });
+    if (!body.querySelector('[data-blk]')) body.insertAdjacentHTML('beforeend', '<div class="card">' + empty('table', 'Các khối đang đóng', 'Bấm “Tạo bảng” ở trên để tạo lại danh sách bài, hoặc Quét lại để hiện lại phần Tổng quan.', '') + '</div>');
     foot.innerHTML = (must.length ? '<span><b style="color:var(--err)">Còn ' + must.length + ' bài thiếu bắt buộc.</b> <span class="muted">Sửa trên KHCN xong bấm Quét lại.</span></span>' : '<span><b style="color:var(--ok)">' + icon('check') + ' Không còn bài thiếu bắt buộc.</b> <span class="muted">Sang HEMIS để đẩy một lần.</span></span>') +
       '<div class="sp"></div><button class="btn" data-csv' + (must.length + softAll.length ? '' : ' disabled') + '>' + icon('dl') + 'Tải danh sách cần sửa</button>' +
       '<button class="btn pri" data-next' + (must.length ? ' aria-disabled="true"' : '') + '>Sang HEMIS' + icon('right') + '</button>';
@@ -103,10 +107,17 @@ async function run() {
   try { await scan(a, b); if (!D.scan.recs.length) toast('Không có bài nào trong khoảng ngày này.', 'err'); tab = 'must'; }
   catch (x) { fail(x); }
 }
-function csv() {
-  const L = check(D.scan.recs).filter(x => x.miss.length || x.soft.length);
-  downloadCsv('Bài báo cần bổ sung', [['Tên bài báo', 'Tạp chí/Hội nghị', 'Loại', 'Ngày công bố', 'Thiếu bắt buộc', 'Nên bổ sung', 'Tên tạp chí chuẩn (danh mục Bộ KH&CN)', 'Link sửa trên KHCN']].concat(L.map(x => [x.r.t, x.r.j, x.r.l, x.r.dRaw, x.miss.join('; '), x.soft.join('; '), x.dmName, x.r.id ? 'https://khcn.tlu.edu.vn/CongBo/EditCongBo/' + x.r.id + '?toantruong=true' : ''])));
+/* ---- Xuat Excel ---- */
+const TABN = { must: 'Thiếu bắt buộc', near: 'Tên tạp chí gần đúng', soft: 'Nên bổ sung', all: 'Tất cả' };
+const pick = (all, k) => k === 'must' ? all.filter(x => x.miss.length) : k === 'near' ? all.filter(x => x.dmName) : k === 'soft' ? all.filter(x => !x.miss.length && x.soft.length && !x.dmName) : k === 'need' ? all.filter(x => x.miss.length || x.soft.length) : all;
+const xRows = L => [['Tên bài báo', 'Tạp chí / hội nghị', 'Loại công bố', 'Ngày công bố', 'Thiếu bắt buộc', 'Nên bổ sung', 'Tên tạp chí chuẩn (danh mục Bộ KH&CN)', 'Link sửa trên KHCN']].concat(L.map(x => [x.r.t, x.r.j, x.r.l, x.r.dRaw, x.miss.join('; '), x.soft.join('; '), x.dmName, x.r.id ? 'https://khcn.tlu.edu.vn/CongBo/EditCongBo/' + x.r.id + '?toantruong=true' : '']));
+function xBang(k) { if (!D.scan) return; downloadXlsx('Quét KHCN ' + TABN[k], { name: TABN[k], rows: xRows(pick(check(D.scan.recs), k)) }); }
+function xTong() {
+  if (!D.scan) return;
+  const all = check(D.scan.recs), must = pick(all, 'must').length, softAll = all.filter(x => !x.miss.length && x.soft.length).length, dm = { ok: 0, near: 0, no: 0 }; all.forEach(x => { if (x.dm) dm[x.dm]++; });
+  downloadXlsx('Quét KHCN tổng quan', { name: 'Tổng quan', rows: [['Chỉ tiêu', 'Số bài'], ['Khoảng ngày quét: ' + vnDate(D.scan.f) + ' – ' + vnDate(D.scan.t), ''], ['Tổng số bài', all.length], ['Đủ thông tin (sẵn sàng đẩy)', all.length - must - softAll], ['Thiếu trường bắt buộc', must], ['Nên bổ sung', softAll], ['Tạp chí trong nước đúng tên danh mục Bộ KH&CN', dm.ok], ['Tạp chí trong nước tên gần đúng', dm.near], ['Tạp chí trong nước không có trong danh mục', dm.no]] });
 }
+function csv() { if (D.scan) downloadXlsx('Bài báo cần bổ sung', { name: 'Cần bổ sung', rows: xRows(pick(check(D.scan.recs), 'need')) }); }
 async function next() {
   const n = check(D.scan.recs).filter(x => x.miss.length).length;
   if (n && !await ask({ title: 'Vẫn sang HEMIS?', text: 'Còn ' + n + ' bài thiếu trường bắt buộc. Những bài này sẽ không đẩy được hoặc bị ghi sai trên HEMIS.\nNên sửa trên KHCN rồi bấm Quét lại.', ok: 'Vẫn sang HEMIS', cancel: 'Ở lại sửa' })) return;

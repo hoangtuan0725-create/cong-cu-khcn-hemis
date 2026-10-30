@@ -49,18 +49,22 @@ export const descSpec = s => conds(s).map(c => c[1]).join('; ') || 'Tất cả b
 export const nConds = s => conds(s).length;
 export const dropCond = (s, key) => { s = JSON.parse(JSON.stringify(s || {})); if (key.startsWith('sets:')) delete s.sets[key.slice(5)]; else delete s[key]; if (s.sets && !Object.keys(s.sets).length) delete s.sets; return s; };
 
-/* Bo loc dang dung (luu tren may) */
-export const L = { spec: pref('loc', {}) };
-export const setSpec = s => { L.spec = s || {}; setPref('loc', L.spec); emit('filter'); };
-export const chipsHtml = () => { const c = conds(L.spec); return c.length ? '<div class="chips">' + c.map(([k, t]) => '<span class="chip"><span>' + esc(t) + '</span><button data-unf="' + esc(k) + '" aria-label="Bỏ điều kiện ' + esc(t) + '">' + icon('x') + '</button></span>').join('') + '<button class="lnk" data-unf="*">Xoá lọc</button></div>' : ''; };
+/* Moi bang mot bo loc rieng, luu tren may: F = filter('tonghop') */
+const FS = {};
+export const filter = key => FS[key] || (FS[key] = { key, spec: pref('loc.' + key, {}) });
+export const setSpec = (F, s) => { F.spec = s || {}; if (!F.temp) setPref('loc.' + F.key, F.spec); emit('filter', F.key); };
+/* Nut "Bo loc (n)" va hang nhan dieu kien cua mot bang */
+export const filterBtn = F => { const n = nConds(F.spec); return '<button class="btn' + (n ? ' on' : '') + '" data-filter="' + F.key + '">' + icon('filter') + 'Bộ lọc' + (n ? ' <span class="badge" aria-label="' + n + ' điều kiện">' + n + '</span>' : '') + '</button>'; };
+export const chipsHtml = F => { const c = conds(F.spec); return c.length ? '<div class="chips">' + c.map(([k, t]) => '<span class="chip"><span>' + esc(t) + '</span><button data-unf="' + esc(k) + '" data-fk="' + F.key + '" aria-label="Bỏ điều kiện ' + esc(t) + '">' + icon('x') + '</button></span>').join('') + '<button class="lnk" data-unf="*" data-fk="' + F.key + '">Xoá lọc</button></div>' : ''; };
 /* gan su kien cho nhan: goi trong man hinh */
-export const bindChips = root => root.addEventListener('click', e => { const b = e.target.closest('[data-unf]'); if (!b) return; setSpec(b.dataset.unf === '*' ? {} : dropCond(L.spec, b.dataset.unf)); });
+export const bindChips = root => root.addEventListener('click', e => { const b = e.target.closest('[data-unf]'); if (!b) return; const F = filter(b.dataset.fk); setSpec(F, b.dataset.unf === '*' ? {} : dropCond(F.spec, b.dataset.unf)); });
 
 /* ---- Bang truot "Bo loc" ---- */
 const uniq = (arr, f) => { const c = new Map(); arr.forEach(a => new Set([].concat(f(a)).map(String)).forEach(v => { if (v !== '' && v != null) c.set(v, (c.get(v) || 0) + 1); })); return [...c.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0]), 'vi', { numeric: true })); };
-/* arts: danh sach bai; extra: { saveAs: fn(spec) } de them nut "Luu lam muc moi" */
-export const openFilter = (arts, extra = {}) => {
-  let s = JSON.parse(JSON.stringify(L.spec || {})); s.sets = s.sets || {};
+/* F: bo loc cua bang; arts: danh sach bai; extra: { saveAs: fn(spec) } = che do tao "muc tu chon" (nut Luu lam muc moi),
+   onApply: goi sau khi bam Ap dung (dung de tao lai bang da dong) */
+export const openFilter = (F, arts, extra = {}) => {
+  let s = JSON.parse(JSON.stringify(F.spec || {})); s.sets = s.sets || {};
   const sel = id => new Set(s.sets[id] || []);
   const body = el('<div></div>');
   const fieldHtml = ([id, name, fn, kind]) => {
@@ -80,8 +84,8 @@ export const openFilter = (arts, extra = {}) => {
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 10px">' + inp('d1', 'Ngày công bố từ', 'dd/mm/yyyy') + inp('d2', 'đến', 'dd/mm/yyyy') + inp('iff', 'IF ≥') + inp('hp', 'Điểm HĐCD ≥') + '</div>' +
     opt('nt', 'Số tác giả trong trường', NT) + opt('ex', 'Có tác giả ngoài trường', EX) + '</div></details>';
   const cnt = () => { const c = comp(s); return arts.filter(a => artOK(a, c)).length; };
-  const foot = (extra.saveAs ? '<button class="btn" data-save>' + icon('plus') + 'Lưu làm mục mới</button>' : '<button class="btn" data-clear>Xoá hết</button>') + '<button class="btn pri" data-apply>Áp dụng · <span data-n></span> bài</button>';
-  const dr = drawer({ title: 'Bộ lọc', body, foot, head: extra.saveAs ? '<button class="lnk" data-clear>Xoá hết</button>' : '' });
+  const foot = extra.saveAs ? '<button class="btn" data-clear>Xoá hết</button><button class="btn pri" data-save>' + icon('plus') + 'Lưu làm mục mới · <span data-n></span> bài</button>' : '<button class="btn" data-clear>Xoá hết</button><button class="btn pri" data-apply>Áp dụng · <span data-n></span> bài</button>';
+  const dr = drawer({ title: extra.saveAs ? 'Điều kiện cho mục mới' : 'Bộ lọc' + (extra.title ? ': ' + extra.title : ''), body, foot });
   const upd = () => { dr.querySelector('[data-n]').textContent = cnt().toLocaleString('vi-VN'); };
   const setVals = (id, vals) => { if (vals.length) s.sets[id] = vals; else delete s.sets[id]; const g = body.querySelector('details[data-g="' + id + '"] summary .v'); if (g) { g.textContent = vals.length ? (vals.length === 1 ? vals[0] : vals.length + ' mục') : 'Tất cả'; g.classList.toggle('on', !!vals.length); } upd(); };
   body.addEventListener('change', e => {
@@ -102,8 +106,8 @@ export const openFilter = (arts, extra = {}) => {
   });
   const clean = () => { if (!Object.keys(s.sets).length) delete s.sets; return s; };
   dr.addEventListener('click', async e => {
-    if (e.target.closest('[data-apply]')) { setSpec(clean()); closeDrawer(); }
-    else if (e.target.closest('[data-clear]')) { closeDrawer(); setSpec({}); openFilter(arts, extra); }
+    if (e.target.closest('[data-apply]')) { setSpec(F, clean()); closeDrawer(); if (extra.onApply) extra.onApply(); }
+    else if (e.target.closest('[data-clear]')) { closeDrawer(); if (!extra.saveAs) setSpec(F, {}); else F.spec = {}; openFilter(F, arts, extra); }
     else if (e.target.closest('[data-save]')) { const sp = clean(); if (await extra.saveAs(sp)) closeDrawer(); else s.sets = s.sets || {}; }
   });
   upd();
