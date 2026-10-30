@@ -28,13 +28,13 @@ const col = i => { let s = ''; i++; while (i) { const m = (i - 1) % 26; s = Stri
 /* do rong hien thi: chu co dau tinh nhu chu thuong */
 const vlen = v => { if (v == null) return 0; if (typeof v === 'number') return v.toLocaleString('vi-VN', { maximumFractionDigits: 2 }).length; return Math.max(...String(v).split('\n').map(l => l.length)); };
 
-/* kieu o: 0 thuong, 1 tieu de, 2 so nguyen, 3 so le, 4 dong tong (chu), 5 dong tong so nguyen, 6 dong tong so le */
+/* kieu o: 0 thuong, 1 tieu de, 7 tieu de nhom (dong tieu de tren, canh trai de khong bi khuat khi gop nhieu cot), 2 so nguyen, 3 so le, 4 dong tong (chu), 5 dong tong so nguyen, 6 dong tong so le */
 const STYLES = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
   '<numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.###"/></numFmts>' +
   '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>' +
   '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDBE6FE"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEFF4FF"/><bgColor indexed="64"/></patternFill></fill></fills>' +
   '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFCBD5E1"/></left><right style="thin"><color rgb="FFCBD5E1"/></right><top style="thin"><color rgb="FFCBD5E1"/></top><bottom style="thin"><color rgb="FFCBD5E1"/></bottom><diagonal/></border></borders>' +
-  '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="7">' +
+  '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="8">' +
   '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>' +
   '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>' +
   '<xf numFmtId="3" fontId="0" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf>' +
@@ -42,6 +42,7 @@ const STYLES = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleShe
   '<xf numFmtId="0" fontId="1" fillId="3" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>' +
   '<xf numFmtId="3" fontId="1" fillId="3" borderId="1" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>' +
   '<xf numFmtId="164" fontId="1" fillId="3" borderId="1" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1"/>' +
+  '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>' +
   '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
 
 const sheetXml = sh => {
@@ -56,10 +57,11 @@ const sheetXml = sh => {
   rows.forEach((r, i) => {
     s += '<row r="' + (i + 1) + '">';
     r.forEach((v, c) => {
-      if (v == null || v === '') { if (i < head) s += '<c r="' + col(c) + (i + 1) + '" s="1"/>'; return; }
+      const hs = i < head - 1 && c >= fc ? 7 : 1;
+      if (v == null || v === '') { if (i < head) s += '<c r="' + col(c) + (i + 1) + '" s="' + hs + '"/>'; return; }
       const ref = col(c) + (i + 1), T = tot.has(i);
-      if (typeof v === 'number' && isFinite(v)) { const int = Number.isInteger(v); s += '<c r="' + ref + '" s="' + (i < head ? 1 : T ? (int ? 5 : 6) : (int ? 2 : 3)) + '"><v>' + v + '</v></c>'; }
-      else s += '<c r="' + ref + '" s="' + (i < head ? 1 : T ? 4 : 0) + '" t="inlineStr"><is><t xml:space="preserve">' + x(v) + '</t></is></c>';
+      if (typeof v === 'number' && isFinite(v)) { const int = Number.isInteger(v); s += '<c r="' + ref + '" s="' + (i < head ? hs : T ? (int ? 5 : 6) : (int ? 2 : 3)) + '"><v>' + v + '</v></c>'; }
+      else s += '<c r="' + ref + '" s="' + (i < head ? hs : T ? 4 : 0) + '" t="inlineStr"><is><t xml:space="preserve">' + x(v) + '</t></is></c>';
     });
     s += '</row>';
   });

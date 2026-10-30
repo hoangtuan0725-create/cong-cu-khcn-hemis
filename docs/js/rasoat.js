@@ -1,6 +1,7 @@
 // Màn "Rà soát bài đã có": so bài đã có trên HEMIS với KHCN, sửa loại / Q / năm / tên tạp chí (có xác nhận), nêu bài trùng để xem bằng tay.
-import { esc, norm, MAP, QM, QN, DMQT, DMTN, matchDM, vnDate, fmtTime, downloadCsv, sleep } from './core.js';
-import { icon, pill, screenHtml, blk, tabsHtml, empty, ask, info, toast, $ } from './ui.js';
+import { esc, norm, MAP, QM, QN, DMQT, DMTN, matchDM, vnDate, fmtTime, sleep } from './core.js';
+import { downloadXlsx } from './xlsx.js';
+import { icon, pill, screenHtml, blk, tabsHtml, empty, ask, info, toast, regBlk, createBtn, $ } from './ui.js';
 import * as B from './bridge.js';
 import { D, loadHemis, HEMIS_API } from './data.js';
 import { guide } from './huongdan.js';
@@ -58,7 +59,7 @@ const row = f => '<tr data-id="' + esc(f.id) + '"><td class="ck"><input type="ch
 
 const html = () => screenHtml({
   title: 'Rà soát bài đã có',
-  acts: '<button class="btn" data-reload>' + icon('refresh') + '<span>Tải lại từ HEMIS</span></button><button class="btn" data-csv>' + icon('dl') + '<span>Tải danh sách</span></button>',
+  acts: '<button class="btn" data-reload>' + icon('refresh') + '<span>Tải lại từ HEMIS</span></button><button class="btn" data-csv>' + icon('dl') + '<span>Tải danh sách</span></button>' + createBtn('rasoat'),
   foot: true
 });
 
@@ -75,6 +76,9 @@ const scr = {
   badge: () => { const C = compute(); const n = C ? C.fixes.filter(f => !fixed(f) && f.clsDiff).length : 0; return n ? { n, label: n + ' bài sai loại hoặc Q' } : null; },
   init(el) {
     root = el; el.innerHTML = html();
+    regBlk('rasoat.tongquan', { scr: 'rasoat', kind: 'info', title: 'Tổng quan', render: () => scr.render(), xlsx: xTong });
+    regBlk('rasoat.bang', { scr: 'rasoat', title: 'Bài cần sửa', render: () => scr.render(), xlsx: () => xBang(tab), close: () => { tab = 'all'; ticks.clear(); } });
+    regBlk('rasoat.tay', { scr: 'rasoat', title: 'Bài trùng trên HEMIS, cần xem bằng tay', render: () => scr.render(), xlsx: xTay });
     el.addEventListener('click', async e => {
       const tb = e.target.closest('[data-tab]'); if (tb) { tab = tb.dataset.tab; scr.render(); return; }
       if (e.target.closest('[data-goto]')) { location.hash = '#' + e.target.closest('[data-goto]').dataset.goto; return; }
@@ -111,12 +115,11 @@ const scr = {
     const c = t => fixes.filter(f => inTab(f, t)).length;
     sub.textContent = H.list.length.toLocaleString('vi-VN') + ' bài trên HEMIS, so với ' + S.recs.length.toLocaleString('vi-VN') + ' bài KHCN quét (' + vnDate(S.f) + ' – ' + vnDate(S.t) + ') · HEMIS lấy lúc ' + fmtTime(H.at);
     body.innerHTML = errHtml +
-      '<div class="note">' + icon('info') + '<div>Đã tick sẵn các bài sai loại, Q hoặc tên tạp chí. Bài chỉ lệch năm để anh/chị tự quyết (thường do bài đăng online năm trước, in năm sau). Công cụ chỉ sửa bài, không xoá bản ghi nào.</div></div>' +
-      blk('rasoat.tongquan', 'Tổng quan', '<div class="stats">' +
+      blk('rasoat.tongquan', 'Tổng quan', '<div class="note">' + icon('info') + '<div>Đã tick sẵn các bài sai loại, Q hoặc tên tạp chí. Bài chỉ lệch năm để anh/chị tự quyết (thường do bài đăng online năm trước, in năm sau). Công cụ chỉ sửa bài, không xoá bản ghi nào.</div></div><div class="stats">' +
         '<div class="card stat' + (c('cls') ? ' err' : '') + '"><div class="k">' + icon('alert') + 'Sai loại hoặc Q</div><div class="v">' + c('cls') + '</div><div class="h">Ảnh hưởng chỉ số Bộ tính</div></div>' +
         '<div class="card stat warn"><div class="k">' + icon('calendar') + 'Lệch năm</div><div class="v">' + c('year') + '</div><div class="h">Năm trên HEMIS khác KHCN</div></div>' +
         '<div class="card stat pri"><div class="k">' + icon('edit') + 'Tên tạp chí</div><div class="v">' + c('jn') + '</div><div class="h">Đồng bộ theo tên chuẩn Bộ KH&amp;CN</div></div>' +
-        '<div class="card stat' + (flags.length ? ' warn' : '') + '"><div class="k">' + icon('copy') + 'Trùng trên HEMIS</div><div class="v">' + flags.length + '</div><div class="h">Cần xem bằng tay</div></div></div>', { card: false }) +
+        '<div class="card stat' + (flags.length ? ' warn' : '') + '"><div class="k">' + icon('copy') + 'Trùng trên HEMIS</div><div class="v">' + flags.length + '</div><div class="h">Cần xem bằng tay</div></div></div>', { pad: true }) +
       blk('rasoat.bang', 'Bài cần sửa', '<div class="tw"><table class="tbl"><thead><tr><th class="ck"><input type="checkbox" data-all aria-label="Chọn tất cả bài trong mục này"' + (L.some(f => !fixed(f) && !isOn(f)) ? '' : ' checked') + (run && run.on ? ' disabled' : '') + '></th>' +
         '<th>Mã HEMIS</th><th class="wt">Bài báo</th><th>Đang ghi trên HEMIS</th><th>Sẽ sửa thành</th><th>Vấn đề / kết quả</th></tr></thead><tbody>' +
         (L.length ? L.slice(0, MAXR).map(row).join('') : '<tr><td colspan="6">' + empty('check', 'Không có bài nào cần sửa trong mục này', '') + '</td></tr>') + '</tbody></table></div>' +
@@ -124,6 +127,9 @@ const scr = {
         { headHtml: tabsHtml([['all', 'Tất cả (' + c('all') + ')'], ['cls', 'Sai loại / Q (' + c('cls') + ')'], ['year', 'Lệch năm (' + c('year') + ')'], ['jn', 'Tên tạp chí (' + c('jn') + ')']], tab) }) +
       blk('rasoat.tay', 'Cần xem bằng tay (' + flags.length + ')', '<div class="tw"><table class="tbl"><thead><tr><th>Mã HEMIS</th><th class="wt">Bài báo</th><th>Vấn đề</th></tr></thead><tbody>' +
         (flags.length ? flags.map(f => '<tr><td class="nowrap">' + esc(f.code) + '</td><td class="t"><b>' + esc(f.t) + '</b></td><td>' + pill('warn', 'Trùng') + ' ' + esc(f.why) + '</td></tr>').join('') : '<tr><td colspan="3">' + empty('check', 'Không có bài trùng trên HEMIS', '') + '</td></tr>') + '</tbody></table></div>');
+    if (!body.querySelector('[data-blk]')) body.insertAdjacentHTML('beforeend', '<div class="card">' + empty('table', 'Các khối đang đóng', 'Bấm “Tạo bảng” ở trên để tạo lại bảng, hoặc tải lại từ HEMIS để hiện lại phần Tổng quan.', '') + '</div>');
+    /* dang sua: khong cho dong bang */
+    const xb = body.querySelector('[data-close="rasoat.bang"]'); if (xb && run && run.on) { xb.disabled = true; xb.title = 'Đang sửa, chưa đóng được'; }
     foot.innerHTML = footHtml(fixes);
   }
 };
@@ -137,11 +143,22 @@ async function reload() {
   try { await loadHemis(); toast('Đã lấy lại danh sách bài trên HEMIS'); } catch (x) { fail(x); }
 }
 
+/* ---- Xuat Excel (day du, khong gioi han 500 dong) ---- */
+const kinds = f => [f.clsDiff ? 'Sai loại/Q' : '', f.yDiff ? 'Lệch năm' : '', f.jDiff ? 'Tên tạp chí' : ''].filter(Boolean).join('; ');
+const fixSheet = fixes => ({ name: 'Bài cần sửa', head: 1, freezeCols: 2, rows: [['Mã HEMIS', 'Tên bài báo', 'Loại (KHCN)', 'Đang ghi trên HEMIS', 'Sẽ sửa thành', 'Vấn đề', 'Kết quả']]
+  .concat(fixes.map(f => { const d = done.get(f.id); return [f.x.mA_BAI_BAO, f.x.teN_BAI_BAO, f.r.l, f.from.join(' | '), f.to.join(' | '), kinds(f), d ? (d.ok ? 'Đã sửa' : 'Lỗi: ' + d.err) : '']; })) });
+const flagSheet = flags => ({ name: 'Bài trùng', head: 1, rows: [['Mã HEMIS', 'Tên bài báo', 'Vấn đề']].concat(flags.map(f => [f.code, f.t, f.why])) });
+const TABN = { all: 'Tất cả', cls: 'Sai loại hoặc Q', year: 'Lệch năm', jn: 'Tên tạp chí' };
 function csv() {
   const C = compute(); if (!C) { toast('Chưa có dữ liệu để tải.', 'err'); return; }
-  downloadCsv('Rà soát bài đã có trên HEMIS', [['Mã HEMIS', 'Tên bài báo', 'Loại (KHCN)', 'Đang ghi trên HEMIS', 'Sẽ sửa thành', 'Vấn đề', 'Kết quả']]
-    .concat(C.fixes.map(f => { const d = done.get(f.id); return [f.x.mA_BAI_BAO, f.x.teN_BAI_BAO, f.r.l, f.from.join(' | '), f.to.join(' | '), [f.clsDiff ? 'Sai loại/Q' : '', f.yDiff ? 'Lệch năm' : '', f.jDiff ? 'Tên tạp chí' : ''].filter(Boolean).join('; '), d ? (d.ok ? 'Đã sửa' : 'Lỗi: ' + d.err) : '']; }))
-    .concat([[], ['Bài trùng trên HEMIS (cần xem bằng tay)'], ['Mã HEMIS', 'Tên bài báo', 'Vấn đề']], C.flags.map(f => [f.code, f.t, f.why])));
+  downloadXlsx('Rà soát bài đã có trên HEMIS', [fixSheet(C.fixes), flagSheet(C.flags)]);
+}
+function xBang(t) { const C = compute(); if (C) downloadXlsx('Rà soát bài cần sửa ' + TABN[t], Object.assign(fixSheet(C.fixes.filter(f => inTab(f, t))), { name: TABN[t] })); }
+function xTay() { const C = compute(); if (C) downloadXlsx('Rà soát bài trùng trên HEMIS', flagSheet(C.flags)); }
+function xTong() {
+  const C = compute(); if (!C) return;
+  const c = t => C.fixes.filter(f => inTab(f, t)).length;
+  downloadXlsx('Rà soát tổng quan', { name: 'Tổng quan', rows: [['Chỉ tiêu', 'Số bài'], ['Sai loại hoặc Q', c('cls')], ['Lệch năm', c('year')], ['Tên tạp chí cần đồng bộ', c('jn')], ['Trùng trên HEMIS (xem bằng tay)', C.flags.length]] });
 }
 
 async function fix() {

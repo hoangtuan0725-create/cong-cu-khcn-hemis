@@ -1,6 +1,7 @@
 // Màn "Đẩy lên HEMIS": so bài đã quét trên KHCN với bài đã có trên HEMIS, đẩy các bài chưa có (một lần, có xác nhận).
-import { esc, norm, MAP, QM, vnDate, fmtTime, shortType, downloadCsv, sleep, DV } from './core.js';
-import { icon, pill, screenHtml, blk, tabsHtml, steps, empty, ask, info, toast, $ } from './ui.js';
+import { esc, norm, MAP, QM, vnDate, fmtTime, shortType, sleep, DV } from './core.js';
+import { downloadXlsx } from './xlsx.js';
+import { icon, pill, screenHtml, blk, tabsHtml, steps, empty, ask, info, toast, regBlk, createBtn, $ } from './ui.js';
 import * as B from './bridge.js';
 import { D, loadHemis, HEMIS_API } from './data.js';
 import { guide } from './huongdan.js';
@@ -56,7 +57,7 @@ const row = (x, tick) => {
 
 const html = () => screenHtml({
   title: 'Đẩy lên HEMIS',
-  acts: '<button class="btn" data-reload>' + icon('refresh') + '<span>Tải lại từ HEMIS</span></button><button class="btn" data-csv>' + icon('dl') + '<span>Tải kết quả</span></button>',
+  acts: '<button class="btn" data-reload>' + icon('refresh') + '<span>Tải lại từ HEMIS</span></button><button class="btn" data-csv>' + icon('dl') + '<span>Tải kết quả</span></button>' + createBtn('day'),
   foot: true
 });
 
@@ -74,6 +75,8 @@ const scr = {
   badge: () => { if (!D.scan || !D.hemis) return null; const n = build().filter(x => canTick(x.st)).length; return n ? { n, label: n + ' bài chưa có trên HEMIS', info: true } : null; },
   init(el) {
     root = el; el.innerHTML = html();
+    regBlk('day.tongquan', { scr: 'day', kind: 'info', title: 'Tổng quan', render: () => scr.render(), xlsx: xTong });
+    regBlk('day.bang', { scr: 'day', title: 'Danh sách bài', render: () => scr.render(), xlsx: xBang, close: () => { tab = 'new'; off.clear(); } });
     el.addEventListener('click', async e => {
       const tb = e.target.closest('[data-tab]'); if (tb) { tab = tb.dataset.tab; scr.render(); return; }
       if (e.target.closest('[data-goto]')) { location.hash = '#' + e.target.closest('[data-goto]').dataset.goto; return; }
@@ -114,12 +117,15 @@ const scr = {
         '<div class="card stat pri"><div class="k">' + icon('up') + 'Sẽ đẩy</div><div class="v">' + c('new').toLocaleString('vi-VN') + '</div><div class="h">Đã duyệt ' + ns('new') + ' · chưa duyệt ' + ns('un') + ' · không tính ' + ns('nc') + '</div></div>' +
         '<div class="card stat"><div class="k">' + icon('check') + 'Đã có trên HEMIS</div><div class="v">' + c('have').toLocaleString('vi-VN') + '</div><div class="h">Bỏ qua</div></div>' +
         '<div class="card stat warn"><div class="k">' + icon('info') + 'Có cảnh báo</div><div class="v">' + c('warn') + '</div><div class="h">Vẫn đẩy được, nên xem</div></div>' +
-        '<div class="card stat' + (c('skip') ? ' err' : '') + '"><div class="k">' + icon('alert') + 'Trùng hoặc lỗi loại</div><div class="v">' + c('skip') + '</div><div class="h">Không đẩy (trùng ' + ns('dup') + ' · lỗi loại/ngày ' + ns('bad') + ')</div></div></div>', { card: false }) +
+        '<div class="card stat' + (c('skip') ? ' err' : '') + '"><div class="k">' + icon('alert') + 'Trùng hoặc lỗi loại</div><div class="v">' + c('skip') + '</div><div class="h">Không đẩy (trùng ' + ns('dup') + ' · lỗi loại/ngày ' + ns('bad') + ')</div></div></div>', { pad: true }) +
       blk('day.bang', 'Danh sách bài', '<div class="tw"><table class="tbl"><thead><tr>' + (tick ? '<th class="ck"><input type="checkbox" data-all aria-label="Chọn tất cả bài trong mục này"' + (L.some(x => canTick(x.st) && off.has(x.k)) ? '' : ' checked') + (run && run.on ? ' disabled' : '') + '></th>' : '') +
         '<th class="wt">Bài báo</th><th>Loại</th><th>Q</th><th>Ngày</th><th>Tình trạng KHCN</th><th>Kết quả</th></tr></thead><tbody>' +
         (L.length ? L.slice(0, MAXR).map(x => row(x, tick)).join('') : '<tr><td colspan="' + (tick ? 7 : 6) + '">' + empty('check', 'Không có bài nào trong mục này', '') + '</td></tr>') + '</tbody></table></div>' +
         (L.length > MAXR ? '<div class="more">Đang hiện ' + MAXR + '/' + L.length + ' bài. Bài nào được tick đều sẽ được đẩy, kể cả bài chưa hiện ở đây.</div>' : ''),
         { headHtml: tabsHtml([['new', 'Sẽ đẩy (' + c('new') + ')'], ['warn', 'Có cảnh báo (' + c('warn') + ')'], ['have', 'Đã có (' + c('have') + ')'], ['skip', 'Bỏ qua (' + c('skip') + ')']], tab) });
+    if (!body.querySelector('[data-blk]')) body.insertAdjacentHTML('beforeend', '<div class="card">' + empty('table', 'Các khối đang đóng', 'Bấm “Tạo bảng” ở trên để tạo lại danh sách bài, hoặc quét lại / tải lại từ HEMIS để hiện lại phần Tổng quan.', '') + '</div>');
+    /* dang day: khong cho dong bang */
+    const xb = body.querySelector('[data-close="day.bang"]'); if (xb && run && run.on) { xb.disabled = true; xb.title = 'Đang đẩy, chưa đóng được'; }
     foot.innerHTML = footHtml(all);
   }
 };
@@ -133,11 +139,21 @@ async function reload() {
   try { await loadHemis(); toast('Đã lấy lại danh sách bài trên HEMIS'); } catch (x) { fail(x); }
 }
 
+/* ---- Xuat Excel (day du, khong gioi han 500 dong) ---- */
+const TXT = { new: 'Chưa đẩy', nc: 'Không áp dụng tính (chưa đẩy)', un: 'Chưa phê duyệt (chưa đẩy)', have: 'Đã có trên HEMIS', ok: 'Đã đẩy thành công', dup: 'Trùng trong KHCN', bad: 'Không rõ loại/ngày' };
+const xRows = items => [['Mã HEMIS', 'Tên bài báo', 'Tạp chí', 'Loại', 'Q', 'Ngày công bố', 'Tình trạng KHCN', 'Tình trạng đẩy', 'Cảnh báo', 'Ghi chú lỗi']]
+  .concat(items.map(x => [x.code, x.r.t, x.r.j, x.r.l, QM[x.r.q] ? x.r.q : '', x.r.dRaw, x.r.st + (x.r.nc ? ' · không áp dụng tính' : ''), x.err ? 'Lỗi' : TXT[x.st], x.warn.join('; '), x.err || x.why]));
+const sheetOf = (name, items) => ({ name, head: 1, freezeCols: 1, rows: xRows(items) });
 function csv() {
   if (!D.scan || !D.hemis) { toast('Chưa có dữ liệu để tải.', 'err'); return; }
-  const txt = { new: 'Chưa đẩy', nc: 'Không áp dụng tính (chưa đẩy)', un: 'Chưa phê duyệt (chưa đẩy)', have: 'Đã có trên HEMIS', ok: 'Đã đẩy thành công', dup: 'Trùng trong KHCN', bad: 'Không rõ loại/ngày' };
-  downloadCsv('Kết quả đẩy HEMIS', [['Mã HEMIS', 'Tên bài báo', 'Tạp chí', 'Loại', 'Q', 'Ngày công bố', 'Tình trạng', 'Cảnh báo', 'Ghi chú lỗi']]
-    .concat(build().map(x => [x.code, x.r.t, x.r.j, x.r.l, x.r.q === 'NONE' ? '' : x.r.q, x.r.dRaw, x.err ? 'Lỗi' : txt[x.st], x.warn.join('; '), x.err || x.why])));
+  downloadXlsx('Kết quả đẩy HEMIS', sheetOf('Kết quả', build()));
+}
+const TABN = { new: 'Sẽ đẩy', warn: 'Có cảnh báo', have: 'Đã có', skip: 'Bỏ qua' };
+function xBang() { if (D.scan && D.hemis) downloadXlsx('Đẩy HEMIS ' + TABN[tab], sheetOf(TABN[tab], build().filter(x => inTab(x, tab)))); }
+function xTong() {
+  if (!D.scan || !D.hemis) return;
+  const all = build(), ns = s => all.filter(x => x.st === s).length;
+  downloadXlsx('Đẩy HEMIS tổng quan', { name: 'Tổng quan', rows: [['Chỉ tiêu', 'Số bài'], ['Sẽ đẩy (tổng)', all.filter(x => canTick(x.st)).length], ['  Đã duyệt', ns('new')], ['  Chưa duyệt', ns('un')], ['  Không áp dụng tính', ns('nc')], ['Có cảnh báo', all.filter(x => inTab(x, 'warn')).length], ['Đã có trên HEMIS', all.filter(x => inTab(x, 'have')).length], ['Trùng trong KHCN', ns('dup')], ['Lỗi loại hoặc ngày', ns('bad')]] });
 }
 
 async function push() {

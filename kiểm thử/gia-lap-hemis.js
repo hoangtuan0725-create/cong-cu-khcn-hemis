@@ -1,7 +1,45 @@
 // Các bước kiểm thử cho màn Danh sách bài, Đẩy lên HEMIS, Rà soát, Chỉ số TT 83 và giao diện điện thoại.
 // Được gia-lap.test.js gọi sau bước Bảng tổng hợp (lúc đó D.scan là năm 2025, D.stats là 2021–2026).
+const fs = require('fs'), os = require('os'), path = require('path'), { execFileSync } = require('child_process');
 module.exports = async ({ pg, APP, shot, idle, ok, writes, hem }) => {
   const S = s => '[data-scr="' + s + '"]';
+  const OUT = process.env.ANH || path.join(os.tmpdir(), 'anh-kiem-thu');
+  /* bam nut Excel o goc khoi, luu file va mo bang openpyxl: co dong, cot A du rong */
+  const xl = async (id, label) => {
+    const [dl] = await Promise.all([pg.waitForEvent('download', { timeout: 15000 }), pg.click('[data-xlsx="' + id + '"]')]);
+    const f = path.join(OUT, 'xlsx ' + id + '.xlsx'); await dl.saveAs(f);
+    let r; try { r = JSON.parse(execFileSync('python3', ['-I', '-c', `
+import sys, json, openpyxl
+wb = openpyxl.load_workbook(sys.argv[1]); ws = wb.worksheets[0]
+longest = max([len(str(c.value)) for c in ws['A'] if c.value is not None] or [0])
+nums = sum(1 for row in ws.iter_rows(min_row=2) for c in row if isinstance(c.value, (int, float)))
+print(json.dumps({'sheets': wb.sheetnames, 'rows': ws.max_row, 'w': ws.column_dimensions['A'].width or 0, 'longest': longest, 'nums': nums}))`, f]).toString()); } catch (e) { r = null; }
+    ok(r && r.rows >= 2, label + ': file .xlsx mở được bằng openpyxl, có dòng (' + (r ? r.rows + ' dòng, trang ' + r.sheets.join('/') : 'lỗi') + ')');
+    ok(r && r.w >= Math.min(60, r.longest), label + ': cột A đủ rộng (' + (r ? r.w + ' so với chữ dài nhất ' + r.longest : '?') + ')');
+    return r;
+  };
+
+  /* ---------- 0. Khối: thu gọn, đóng, tạo lại (Bảng tổng hợp) ---------- */
+  console.log('5. Khối thu gọn, đóng, tạo lại');
+  await pg.goto(APP + '#tonghop'); await pg.waitForSelector('[data-blk="th.pivot"]');
+  await pg.click(S('tonghop') + ' [data-filter="tonghop"]'); await pg.waitForSelector('.drawer');
+  await pg.locator('.drawer button[data-f="grp"]').first().click(); await pg.click('.drawer [data-apply]'); await pg.waitForTimeout(400);
+  const chips = () => pg.locator('[data-blk="th.pivot"] .chip').count();
+  ok(await chips() >= 1, 'đặt 1 điều kiện lọc cho Bảng tổng hợp');
+  await pg.click('[data-collapse="th.pivot"]');
+  ok(await pg.locator('[data-blk="th.pivot"].collapsed').count() === 1, 'bấm — thì khối thu gọn');
+  await pg.click('[data-collapse="th.pivot"]');
+  ok(await pg.locator('[data-blk="th.pivot"]:not(.collapsed)').count() === 1 && await chips() >= 1, 'bấm lại thì khối mở và bộ lọc vẫn còn');
+  await xl('th.pivot', 'Bảng tổng hợp');
+  await pg.click('[data-close="th.pivot"]'); await pg.waitForTimeout(400);
+  ok(await pg.locator('[data-blk="th.pivot"]').count() === 0, 'bấm X thì khối biến mất');
+  ok(await pg.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('t2h.loc.tonghop') || '{}')).length === 0), 'bộ lọc loc.tonghop đã rỗng sau khi đóng');
+  await shot('12 Khối đã đóng');
+  await pg.click(S('tonghop') + ' [data-create="tonghop"]'); await pg.waitForSelector('.pop [data-mk="th.pivot"]');
+  await pg.click('.pop [data-mk="th.pivot"]'); await pg.waitForSelector('.drawer');
+  await pg.click('.drawer [data-apply]'); await pg.waitForSelector('[data-blk="th.pivot"]', { timeout: 5000 });
+  ok(await pg.locator('[data-blk="th.pivot"]').count() === 1, 'Tạo bảng, chọn Bảng tổng hợp nhiều tầng, Áp dụng thì khối hiện lại');
+  await shot('13 Khối tạo lại');
   const posts = () => writes.filter(w => w[0] === 'POST');
   const puts = () => writes.filter(w => w[0] === 'PUT');
   const untickAll = async scr => { const all = pg.locator(S(scr) + ' [data-all]'); await all.setChecked(true); await all.setChecked(false); };
@@ -12,6 +50,7 @@ module.exports = async ({ pg, APP, shot, idle, ok, writes, hem }) => {
   const n0 = await pg.locator(S('danhsach') + ' tbody tr').count();
   ok(n0 > 20, 'danh sách có dòng (' + n0 + ')');
   await shot('6 Danh sách bài');
+  await xl('ds.bang', 'Danh sách bài');
   await pg.fill(S('danhsach') + ' [data-q]', 'hồ chứa'); await pg.waitForTimeout(600);
   const n1 = await pg.locator(S('danhsach') + ' tbody tr').count();
   ok(n1 > 0 && n1 < n0, 'gõ tìm "hồ chứa" thì số dòng giảm (' + n0 + ' xuống ' + n1 + ')');
@@ -32,6 +71,7 @@ module.exports = async ({ pg, APP, shot, idle, ok, writes, hem }) => {
   console.log('7. Đẩy lên HEMIS');
   await pg.goto(APP + '#day'); await pg.waitForSelector(S('day') + ' tbody tr[data-k]');
   await shot('7 Đẩy lên HEMIS');
+  await xl('day.bang', 'Đẩy lên HEMIS');
   const total = await pg.locator(S('day') + ' [data-ck]').count();
   ok(total >= 3, 'có ít nhất 3 bài sẽ đẩy (' + total + ')');
   await untickAll('day');
@@ -69,6 +109,7 @@ module.exports = async ({ pg, APP, shot, idle, ok, writes, hem }) => {
   ok(nfix > 2, 'có bài cần sửa (' + nfix + ')');
   ok((await pg.locator('[data-blk="rasoat.tay"]').innerText()).includes('BBKH2025-999'), 'có bài trùng trên HEMIS (BBKH2025-999)');
   await shot('9 Rà soát');
+  await xl('rasoat.bang', 'Rà soát');
   await untickAll('rasoat');
   await pg.click(S('rasoat') + ' [data-tab="cls"]');
   const rows = [];
@@ -100,6 +141,7 @@ module.exports = async ({ pg, APP, shot, idle, ok, writes, hem }) => {
   await pg.goto(APP + '#tt83'); await pg.waitForSelector(S('tt83') + ' .kpi');
   await pg.selectOption(S('tt83') + ' [data-yr]', '2025'); await pg.waitForSelector(S('tt83') + ' [data-in="gQD"]'); await pg.waitForTimeout(400);
   await shot('10 Chỉ số TT83');
+  await xl('tt83.sanpham', 'Chỉ số TT 83');
   await pg.fill(S('tt83') + ' [data-in="gQD"]', '500'); await pg.waitForTimeout(300);
   const kpi1 = (await pg.locator(S('tt83') + ' .kpi .big').first().innerText()).trim();
   ok(/\d/.test(kpi1), 'nhập GQĐ = 500 thì KPI 6.2.1 hiện số (' + kpi1 + ')');

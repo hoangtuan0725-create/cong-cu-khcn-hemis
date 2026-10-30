@@ -97,7 +97,7 @@ const hemis = (method, p, data) => {
   await pg.locator('[data-scr="tonghop"] td.cell[tabindex]').first().click();
   await pg.waitForSelector('.drawer'); await shot('3 Bấm vào ô số');
   await pg.keyboard.press('Escape'); ok(!(await pg.locator('.drawer').count()), 'Esc đóng bảng trượt');
-  await pg.click('[data-scr="tonghop"] [data-filter]'); await pg.waitForSelector('.drawer');
+  await pg.click('[data-scr="tonghop"] [data-filter="tonghop"]'); await pg.waitForSelector('.drawer');
   await pg.locator('.drawer button[data-f="grp"]').first().click();
   await pg.locator('.drawer [data-role="corr"]').click(); await shot('4 Bộ lọc mở');
   await pg.click('.drawer [data-apply]'); await pg.waitForTimeout(300);
