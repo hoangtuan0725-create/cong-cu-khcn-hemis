@@ -8,12 +8,11 @@ import quet from './quet.js';
 import tonghop from './tonghop.js';
 import danhsach from './danhsach.js';
 import day from './day.js';
-import rasoat from './rasoat.js';
 import tt83 from './tt83.js';
 import caidat from './caidat.js';
 
 /* Moi man hinh: { id, title, icon, group (1 KHCN, 2 HEMIS), busy: [khoa D.busy], on: [su kien du lieu], badge(), init(root), render() } */
-const SCREENS = [quet, tonghop, danhsach, day, rasoat, tt83, caidat];
+const SCREENS = [quet, tonghop, danhsach, day, tt83, caidat];
 const main = $('#main'), appEl = $('#app');
 const roots = {};
 let curId = null;
@@ -34,6 +33,7 @@ const syncBusy = s => {
 };
 
 const show = id => {
+  if (id === 'rasoat') id = 'day';   /* man Ra soat cu da gop vao Day len HEMIS */
   const s = SCREENS.find(x => x.id === id) || SCREENS[0];
   curId = s.id;
   Object.values(roots).forEach(r => { r.el.hidden = true; });
@@ -49,7 +49,7 @@ const show = id => {
 };
 
 /* Du lieu doi: ve lai man dang mo, danh dau cac man khac de ve lai khi mo */
-['scan', 'stats', 'hemis', 'filter', 'settings'].forEach(ev => on(ev, () => {
+['scan', 'stats', 'hemis', 'filter', 'settings', 'detai'].forEach(ev => on(ev, () => {
   if (ev === 'scan' || ev === 'stats' || ev === 'hemis') reopenInfo();
   SCREENS.forEach(s => { if (!(s.on || []).includes(ev)) return; const r = roots[s.id]; if (!r) return; if (s.id === curId) s.render(); else r.dirty = true; });
   drawNav();

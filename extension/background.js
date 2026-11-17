@@ -82,7 +82,7 @@ async function handle(msg) {
       return runIn('khcn', khcnFetch, [msg.path, msg.form || null]);
     case 'hemis':
       if (!okPath(msg.path) || !msg.path.startsWith('/gwdev/')) throw new Error('Đường dẫn không hợp lệ');
-      if (!['GET', 'POST', 'PUT'].includes(msg.method)) throw new Error('Lệnh không hợp lệ');
+      if (!['GET', 'POST', 'PUT', 'DELETE'].includes(msg.method)) throw new Error('Lệnh không hợp lệ');
       return runIn('hemis', hemisFetch, [msg.path, msg.method, msg.data == null ? null : msg.data]);
     case 'openEdit': {
       if (!/^\d+$/.test(String(msg.id))) throw new Error('Mã bài không hợp lệ');

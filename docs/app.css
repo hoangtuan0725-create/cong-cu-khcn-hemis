@@ -286,3 +286,7 @@ button.sel { cursor: pointer }
 .setrow input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--pri); flex: none; cursor: pointer }
 .setrow > span { display: flex; flex-direction: column; gap: 2px }
 .nav.bottom { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px }
+
+/* ---------- Đẩy lên HEMIS: chọn loại dữ liệu ---------- */
+.kinds { display: flex; gap: 4px; padding: 0 24px; background: var(--surface); border-bottom: 1px solid var(--line); flex-wrap: wrap }
+@media (max-width: 900px) { .kinds { padding: 0 16px } }
