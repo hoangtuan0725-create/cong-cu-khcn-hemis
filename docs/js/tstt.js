@@ -160,7 +160,7 @@ function merged() {
       if (dif.length) it.warn.push('KHCN và Excel khác nhau: ' + dif.join(', ') + ' (dùng giá trị KHCN)');
     }
     if (e && !h && D.tstt) it.warn.push('Chỉ có trong Excel, nên khai bổ sung lên KHCN');
-    if (!x.key) it.skip = /đơn|ký số/i.test(it.so) ? 'Đơn chưa thành bằng (chưa có số bằng)' : !e ? 'Chưa có số bằng. KHCN có thể nhập nhầm loại' : 'Chưa có số bằng';
+    if (!it.key) it.skip = /đơn|ký số/i.test(it.so) ? 'Đơn chưa thành bằng (chưa có số bằng)' : !e ? 'Chưa có số bằng. KHCN có thể nhập nhầm loại' : 'Chưa có số bằng';
     else if (!e && NOT_PATENT.test(it.ten + ' ' + it.so)) it.skip = 'Tên cho thấy không phải bằng. KHCN có thể nhập nhầm loại';
     return it;
   });
