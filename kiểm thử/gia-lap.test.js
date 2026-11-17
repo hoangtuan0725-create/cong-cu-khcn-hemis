@@ -38,9 +38,11 @@ const khcn = (url, form) => {
 const hem = [];
 arts.filter(a => a.id % 4 === 0 && a.d).forEach((a, i) => hem.push({ id: 'h' + i, doN_VI_ID: '452d0027-e4c1-44d1-9efb-befb8db8840d', mA_BAI_BAO: 'BBKH' + toISO(a.d).slice(0, 4) + '-' + (i + 1), teN_BAI_BAO: a.t, teN_TAP_CHI: a.j, naM_CONG_BO: +toISO(a.d).slice(0, 4) + (i % 9 === 0 ? 1 : 0), phaN_LOAI: 1, taP_CHI_QUOC_TE: i % 5 === 0 ? '04' : '01', xeP_HANG_Q: null }));
 hem.push(Object.assign({}, hem[0], { id: 'hdup', mA_BAI_BAO: 'BBKH2025-999' }));
+/* tai san tri tue gia: 01 sang che, 02 giai phap huu ich */
+const tstt = [['01', 2026], ['01', 2026], ['02', 2026], ['02', 2026], ['02', 2026], ['02', 2025]].map(([l, y], i) => ({ id: 't' + i, mA_GIAI_PHAP: String(5000 + i), loaI_GIAI_PHAP: l, naM_DUOC_CAP_BANG: y }));
 const writes = [];
 const hemis = (method, p, data) => {
-  if (p.endsWith('/GetData')) { const pg = data.pageInfo.page, ps = data.pageInfo.pageSize; return { status: 200, text: JSON.stringify({ success: true, data: hem.slice((pg - 1) * ps, pg * ps) }) }; }
+  if (p.endsWith('/GetData')) { const src = p.includes('KHCN_GIAI_PHAP_SANG_CHE_DON_VI') ? tstt : hem, pg = data.pageInfo.page, ps = data.pageInfo.pageSize; return { status: 200, text: JSON.stringify({ success: true, data: src.slice((pg - 1) * ps, pg * ps) }) }; }
   const m = p.match(/\/DetailWithPermission\/([^?]+)/); if (m) return { status: 200, text: JSON.stringify({ success: true, data: Object.assign({}, hem.find(x => x.id === m[1])) }) };
   if (method === 'POST') { writes.push(['POST', data.mA_BAI_BAO]); hem.push(data); return { status: 200, text: JSON.stringify({ success: true }) }; }
   if (method === 'PUT') { const id = p.split('/').pop(), i = hem.findIndex(x => x.id === id); writes.push(['PUT', id]); hem[i] = data; return { status: 200, text: JSON.stringify({ success: true }) }; }

@@ -5,6 +5,7 @@ import { icon, pill, screenHtml, blk, tabsHtml, steps, empty, ask, info, toast, 
 import * as B from './bridge.js';
 import { D, loadHemis, HEMIS_API } from './data.js';
 import { guide } from './huongdan.js';
+import { setting } from './caidat.js';
 
 const MAXR = 500;
 let root, tab = 'new', err = '', tried = false;
@@ -12,7 +13,8 @@ const off = new Set();      // khoa bai bo tick (mac dinh moi bai deu duoc tick)
 const done = new Map();     // khoa bai -> { ok, code } hoac { err }: ket qua lan day gan nhat
 let run = null;             // { on, ok, bad, total, msg } khi dang day hoac vua day xong
 
-const canTick = s => s === 'new' || s === 'nc' || s === 'un';
+/* bai chua duyet chi duoc day khi Cai dat cho phep */
+const canTick = s => s === 'new' || s === 'nc' || (s === 'un' && !setting('chiDuyet'));
 
 /* Ghep bai KHCN voi bai da co tren HEMIS. st: new (se day) | nc (da duyet nhung khong ap dung tinh) | un (chua phe duyet) | have | ok (vua day) | dup | bad */
 const build = () => {
@@ -36,7 +38,7 @@ const build = () => {
 };
 const withDone = x => { const d = done.get(x.k); if (d && d.ok && canTick(x.st)) { x.st = 'ok'; x.code = d.code; } else if (d && d.err && canTick(x.st)) x.err = d.err; return x; };
 
-const inTab = (x, t) => t === 'new' ? canTick(x.st) : t === 'warn' ? canTick(x.st) && x.warn.length > 0 : t === 'have' ? x.st === 'have' || x.st === 'ok' : x.st === 'dup' || x.st === 'bad';
+const inTab = (x, t) => t === 'new' ? canTick(x.st) : t === 'chua' ? x.st === 'un' : t === 'warn' ? canTick(x.st) && x.warn.length > 0 : t === 'have' ? x.st === 'have' || x.st === 'ok' : x.st === 'dup' || x.st === 'bad';
 const selN = items => items.filter(x => canTick(x.st) && !off.has(x.k)).length;
 
 const khcnPill = r => (r.ap ? pill('ok', 'Đã duyệt') : r.cs ? pill('warn', 'Cần sửa') : pill('mut', 'Chưa duyệt', 'info')) + (r.nc ? pill('mut', 'Không tính', 'info') : '');
@@ -71,7 +73,7 @@ const footHtml = items => {
 };
 
 const scr = {
-  id: 'day', title: 'Đẩy lên HEMIS', icon: 'up', group: 2, busy: ['hemis'], on: ['scan', 'hemis'],
+  id: 'day', title: 'Đẩy lên HEMIS', icon: 'up', group: 2, busy: ['hemis'], on: ['scan', 'hemis', 'settings'],
   badge: () => { if (!D.scan || !D.hemis) return null; const n = build().filter(x => canTick(x.st)).length; return n ? { n, label: n + ' bài chưa có trên HEMIS', info: true } : null; },
   init(el) {
     root = el; el.innerHTML = html();
@@ -110,11 +112,12 @@ const scr = {
     }
     const all = build();
     const c = t => all.filter(x => inTab(x, t)).length, ns = s => all.filter(x => x.st === s).length;
+    const chua = setting('chiDuyet'); if (!chua && tab === 'chua') tab = 'new';
     const L = all.filter(x => inTab(x, tab)), tick = tab === 'new' || tab === 'warn';
     sub.textContent = 'So với ' + H.list.length.toLocaleString('vi-VN') + ' bài đã có trên HEMIS của Trường · lấy lúc ' + fmtTime(H.at);
     body.innerHTML = errHtml + steps(3) +
       blk('day.tongquan', 'Tổng quan', '<div class="stats">' +
-        '<div class="card stat pri"><div class="k">' + icon('up') + 'Sẽ đẩy</div><div class="v">' + c('new').toLocaleString('vi-VN') + '</div><div class="h">Đã duyệt ' + ns('new') + ' · chưa duyệt ' + ns('un') + ' · không tính ' + ns('nc') + '</div></div>' +
+        '<div class="card stat pri"><div class="k">' + icon('up') + 'Sẽ đẩy</div><div class="v">' + c('new').toLocaleString('vi-VN') + '</div><div class="h">' + (setting('chiDuyet') ? 'Chỉ bài đã duyệt · ' + ns('un') + ' bài chưa duyệt không đẩy' : 'Đã duyệt ' + (ns('new') + ns('nc')) + ' · chưa duyệt ' + ns('un')) + '</div></div>' +
         '<div class="card stat"><div class="k">' + icon('check') + 'Đã có trên HEMIS</div><div class="v">' + c('have').toLocaleString('vi-VN') + '</div><div class="h">Bỏ qua</div></div>' +
         '<div class="card stat warn"><div class="k">' + icon('info') + 'Có cảnh báo</div><div class="v">' + c('warn') + '</div><div class="h">Vẫn đẩy được, nên xem</div></div>' +
         '<div class="card stat' + (c('skip') ? ' err' : '') + '"><div class="k">' + icon('alert') + 'Trùng hoặc lỗi loại</div><div class="v">' + c('skip') + '</div><div class="h">Không đẩy (trùng ' + ns('dup') + ' · lỗi loại/ngày ' + ns('bad') + ')</div></div></div>', { pad: true }) +
@@ -122,7 +125,7 @@ const scr = {
         '<th class="wt">Bài báo</th><th>Loại</th><th>Q</th><th>Ngày</th><th>Tình trạng KHCN</th><th>Kết quả</th></tr></thead><tbody>' +
         (L.length ? L.slice(0, MAXR).map(x => row(x, tick)).join('') : '<tr><td colspan="' + (tick ? 7 : 6) + '">' + empty('check', 'Không có bài nào trong mục này', '') + '</td></tr>') + '</tbody></table></div>' +
         (L.length > MAXR ? '<div class="more">Đang hiện ' + MAXR + '/' + L.length + ' bài. Bài nào được tick đều sẽ được đẩy, kể cả bài chưa hiện ở đây.</div>' : ''),
-        { headHtml: tabsHtml([['new', 'Sẽ đẩy (' + c('new') + ')'], ['warn', 'Có cảnh báo (' + c('warn') + ')'], ['have', 'Đã có (' + c('have') + ')'], ['skip', 'Bỏ qua (' + c('skip') + ')']], tab) });
+        { headHtml: tabsHtml([['new', 'Sẽ đẩy (' + c('new') + ')'], ['warn', 'Có cảnh báo (' + c('warn') + ')']].concat(chua ? [['chua', 'Chưa duyệt (' + c('chua') + ')']] : [], [['have', 'Đã có (' + c('have') + ')'], ['skip', 'Bỏ qua (' + c('skip') + ')']]), tab) });
     if (!body.querySelector('[data-blk]')) body.insertAdjacentHTML('beforeend', '<div class="card">' + empty('table', 'Các khối đang đóng', 'Bấm “Tạo bảng” ở trên để tạo lại danh sách bài, hoặc quét lại / tải lại từ HEMIS để hiện lại phần Tổng quan.', '') + '</div>');
     /* dang day: khong cho dong bang */
     const xb = body.querySelector('[data-close="day.bang"]'); if (xb && run && run.on) { xb.disabled = true; xb.title = 'Đang đẩy, chưa đóng được'; }
@@ -140,7 +143,7 @@ async function reload() {
 }
 
 /* ---- Xuat Excel (day du, khong gioi han 500 dong) ---- */
-const TXT = { new: 'Chưa đẩy', nc: 'Không áp dụng tính (chưa đẩy)', un: 'Chưa phê duyệt (chưa đẩy)', have: 'Đã có trên HEMIS', ok: 'Đã đẩy thành công', dup: 'Trùng trong KHCN', bad: 'Không rõ loại/ngày' };
+const TXT = { new: 'Chưa đẩy', nc: 'Không áp dụng tính (chưa đẩy)', un: 'Chưa phê duyệt', have: 'Đã có trên HEMIS', ok: 'Đã đẩy thành công', dup: 'Trùng trong KHCN', bad: 'Không rõ loại/ngày' };
 const xRows = items => [['Mã HEMIS', 'Tên bài báo', 'Tạp chí', 'Loại', 'Q', 'Ngày công bố', 'Tình trạng KHCN', 'Tình trạng đẩy', 'Cảnh báo', 'Ghi chú lỗi']]
   .concat(items.map(x => [x.code, x.r.t, x.r.j, x.r.l, QM[x.r.q] ? x.r.q : '', x.r.dRaw, x.r.st + (x.r.nc ? ' · không áp dụng tính' : ''), x.err ? 'Lỗi' : TXT[x.st], x.warn.join('; '), x.err || x.why]));
 const sheetOf = (name, items) => ({ name, head: 1, freezeCols: 1, rows: xRows(items) });
@@ -148,7 +151,7 @@ function csv() {
   if (!D.scan || !D.hemis) { toast('Chưa có dữ liệu để tải.', 'err'); return; }
   downloadXlsx('Kết quả đẩy HEMIS', sheetOf('Kết quả', build()));
 }
-const TABN = { new: 'Sẽ đẩy', warn: 'Có cảnh báo', have: 'Đã có', skip: 'Bỏ qua' };
+const TABN = { new: 'Sẽ đẩy', warn: 'Có cảnh báo', chua: 'Chưa duyệt', have: 'Đã có', skip: 'Bỏ qua' };
 function xBang() { if (D.scan && D.hemis) downloadXlsx('Đẩy HEMIS ' + TABN[tab], sheetOf(TABN[tab], build().filter(x => inTab(x, tab)))); }
 function xTong() {
   if (!D.scan || !D.hemis) return;

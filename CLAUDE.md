@@ -1,6 +1,6 @@
 # Công cụ KHCN TLU → HEMIS — tài liệu bàn giao cho Claude Code
 
-Bàn giao ngày 30/10/2026 từ Claude (Cowork); cập nhật cùng ngày sau khi chuyển sang trang web + tiện ích cầu nối. Người dùng: **Tuấn** (CV. Nguyễn Hoàng Tuấn, Phòng KHCN&HTQT – P9, Trường Đại học Thủy lợi).
+Bàn giao ngày 30/10/2026 từ Claude (Cowork); cập nhật cùng ngày sau khi chuyển sang trang web + tiện ích cầu nối. Bổ sung theo "Bàn giao Claude Code lần 2" (17/11/2026, file nằm trên máy Tuấn: Documents › Công cụ KHCN HEMIS; không đưa vào kho vì có tên người và số liệu nội bộ). Người dùng: **Tuấn** (CV. Nguyễn Hoàng Tuấn, Phòng KHCN&HTQT – P9, Trường Đại học Thủy lợi).
 
 ## 0. Cách làm việc với Tuấn (bắt buộc)
 
@@ -29,6 +29,7 @@ Từ 30/10/2026 công cụ là **trang web tĩnh trên GitHub Pages** (phương 
 | `docs/js/ui.js`, `docs/app.css` | Thành phần giao diện và design tokens theo mẫu đã duyệt (`thiết kế/`): khối thu gọn `blk()` (nhớ trạng thái), bảng trượt phải `drawer()` (đóng bằng X, Esc, bấm ra ngoài), hộp thoại `ask()`, `toast()`, `popover()`, biểu tượng SVG Lucide `icon()`. |
 | `docs/js/loc.js` | Bộ lọc: **mỗi bảng một bộ lọc riêng** (`filter('tonghop')`, `filter('mot')`, `filter('danhsach')`), bảng trượt "Bộ lọc", nhãn điều kiện có nút X. |
 | `docs/js/xlsx.js` | Xuất file .xlsx thật, không thư viện: tiêu đề đậm, cố định tiêu đề, cột tự rộng (tối đa 60, chữ dài tự xuống dòng), số để dạng số, ô gộp, dòng tổng. |
+| `docs/js/caidat.js` | Màn Cài đặt (cuối menu trái): tuỳ chọn dùng chung, lưu localStorage `t2h.cd.*`; đọc bằng `setting(khoá)`, đổi thì phát sự kiện `settings`. **Tuỳ chọn không hiện trên màn làm việc, gom hết vào đây** (Tuấn yêu cầu 17/11). |
 | `docs/js/quet.js`, `tonghop.js`, `danhsach.js`, `day.js`, `rasoat.js`, `tt83.js` | Sáu màn: Quét & kiểm tra, Bảng tổng hợp (nhiều tầng, bảng một chiều, mục tự chọn), Danh sách bài, Đẩy lên HEMIS, Rà soát bài đã có, Chỉ số TT 83. |
 | `docs/tien-ich-khcn-hemis.zip` | Tiện ích đóng gói để người dùng tải từ trang. Tạo lại bằng `python3 "đóng gói tiện ích.py"` mỗi khi sửa `extension/`. |
 | `extension/` | Tiện ích MV3 bản 2.0.0. `bridge.js` (content script, chỉ chạy trên trang công cụ) chuyển yêu cầu tới `background.js`; background tìm hoặc mở ngầm tab KHCN/HEMIS rồi chạy `fetch` trong tab đó bằng `chrome.scripting.executeScript` (dùng cookie KHCN và `localStorage.access_token` của HEMIS). Chỉ nhận lệnh từ trang công cụ; HEMIS chỉ cho GET/POST/PUT trên `/gwdev/`. Bấm biểu tượng tiện ích = mở trang công cụ ở tab mới. |
@@ -54,17 +55,25 @@ Hai màn chưa có mẫu (Danh sách bài, Rà soát bài đã có) làm cùng k
 - Đăng ký khối: `regBlk(id, { scr, title, kind, close, xlsx, reopen, render })` trong `init` của màn.
 
 ### 3.3. Dữ liệu đã quét
-Đã làm: mở lên hiện ngay dữ liệu lần trước kèm "dữ liệu lúc hh:mm ngày dd/mm", nút Tải lại, lưu IndexedDB; Bảng tổng hợp tự cập nhật ngầm nếu dữ liệu cũ hơn 1 giờ.
-Chưa làm: tự làm mới chi tiết tác giả của bài bị sửa trên KHCN (hiện phải tick "Lấy lại toàn bộ chi tiết tác giả").
+Đã làm: mở lên hiện ngay dữ liệu lần trước, nút Tải lại, lưu IndexedDB; Bảng tổng hợp tự cập nhật ngầm nếu dữ liệu cũ hơn 1 giờ. Chưa làm: tự làm mới chi tiết tác giả của bài bị sửa trên KHCN.
 
-### 3.4. Kiểm thử
+### 3.4. Kế hoạch từ bàn giao lần 2 (Tuấn duyệt thứ tự 17/11/2026)
+Từ 30/10 đến 17/11, Cowork làm thẳng trên HEMIS bằng JavaScript dán vào tab (đẩy bài 2026, tài sản trí tuệ, đề tài; xoá dữ liệu trước 2026 sau khi sao lưu). Việc của Claude Code là đưa các chức năng đó vào app. **HEMIS không tự tính 6.1/6.2** (Cowork đã kiểm tra 13/11), app phải tự tính.
+1. **Đợt 1 (xong 17/11):** Cài đặt "Chỉ đẩy bài đã phê duyệt" (mặc định bật; bài chưa duyệt ở tab "Chưa duyệt"); TT 83 lấy P3 giải pháp hữu ích và P4 sáng chế từ phân hệ Tài sản trí tuệ HEMIS theo năm cấp bằng, chỉ sách nhập tay; hai tuỳ chọn TT 83 chuyển vào Cài đặt. Mẫu 10–12.
+2. **Đợt 2:** Sao lưu HEMIS (3 phân hệ, chi tiết đầy đủ qua DetailWithPermission) thành file JSON; Khôi phục từ file.
+3. **Đợt 3:** màn Đề tài (KHCN_NHIEM_VU_KHCN): quét đề tài các cấp trên KHCN (theo từng cấp, 2–3 lượt), so với HEMIS ra bảng THÊM/SỬA/XOÁ có tick, nhập tay, nhập đề tài cấp cơ sở từ QĐ giao theo đợt, thống kê cấp × chủ quản × tình trạng; nhớ danh sách ngoại lệ/loại trừ (Tuấn nhập trong app, không ghi vào mã). Cần tiện ích 2.1 cho phép DELETE.
+4. **Đợt 4:** màn Tài sản trí tuệ: quét KHCN loại 4/6 + nhập Excel SHTT của phòng, cảnh báo, đẩy/sửa.
+5. **Đợt 5:** xoá theo năm/phân hệ (bắt buộc sao lưu trước); hiện số đếm của app cạnh Bàn làm việc HEMIS.
+Mỗi màn mới phải có mẫu cho Tuấn duyệt; giữ giao diện **gọn, tối giản**.
+
+### 3.5. Kiểm thử
 
 - Chạy `node "kiểm thử/gia-lap.test.js"` sau mỗi thay đổi; xem ảnh chụp.
 - **Chưa thử với dữ liệu thật:** toàn bộ trang mới qua tiện ích thật; bảng tổng hợp nhiều tầng; việc đọc 14 loại công bố từ trang KHCN; định dạng cột Giờ KH và Tiền hỗ trợ (đang đọc giờ kiểu `12,5`, tiền bỏ hết dấu chấm/phẩy).
 
 ## 4. Nghiệp vụ (đã chốt với Tuấn)
 
-- Đẩy **mọi trạng thái** trên KHCN (đã duyệt, chưa duyệt, cần sửa, không áp dụng tính). **Không đẩy tác giả.**
+- Bài báo: **mặc định chỉ đẩy bài đã phê duyệt** (đợt 2026 Tuấn làm vậy; đổi trong Cài đặt). **Không đẩy tác giả**, không đẩy file bài (form HEMIS không có ô file, DOI, tác giả).
 - Quét và báo thiếu trường trước; sửa trên KHCN rồi quét lại, **đẩy một lần**, không đẩy lắt nhắt.
 - Tên tạp chí sửa ở nguồn (KHCN); bản HEMIS đồng bộ theo KHCN.
 - Kỷ yếu ISI/Scopus: giữ cách nhập năm 2025 (Kỷ yếu, TN 03). Kỷ yếu Hội nghị KH thường niên ĐHTL thuộc danh mục HĐGSNN ngành Thủy lợi → TN 01.
@@ -125,7 +134,18 @@ HEMIS (tài khoản của Trường, đơn vị `doN_VI_ID = 452d0027-e4c1-44d1-
 - `POST /gwdev/nckh/v5/KHCN_BAI_BAO_KHOA_HOC`: thêm bài. Các trường: `id` (uuid), `doN_VI_ID`, `mA_BAI_BAO`, `teN_BAI_BAO`, `teN_TAP_CHI`, `naM_CONG_BO`, `phaN_LOAI`, `taP_CHI_QUOC_TE` / `taP_CHI_TRONG_NUOC`, `xeP_HANG_Q`, `taP_SO`, `trang`.
 - `GET /gwdev/nckh/v5/KHCN_BAI_BAO_KHOA_HOC/DetailWithPermission/{id}?pid=00000000-0000-0000-0000-000000000000`, sau đó `PUT /gwdev/nckh/v5/KHCN_BAI_BAO_KHOA_HOC/{id}` với bản đầy đủ.
 - Mã 401 nghĩa là hết phiên: yêu cầu F5 trên tab HEMIS.
-- Sách (KHCH_SACH_XUAT_BAN) và Sáng chế (KHCN_GIAI_PHAP_SANG_CHE_DON_VI) của Trường hiện trống.
+- Lấy danh sách: body GetData **phải đúng dạng** `{filters:[{valueIsField:false,filters:[],stringCompareOption:0,field:"doN_VI_ID",operator:"eq",value:"\"<id>\""}],sorts:[],includes:[],pageInfo:{page,pageSize}}`; dạng `{filter,skip,take}` bị bỏ qua (trả 15 bản ghi toàn quốc).
+- Thêm `POST /{Thực thể}` (kèm `doN_VI_ID`, `isBuildIn:false`, `isBuildInAll:false`); sửa: DetailWithPermission rồi `PUT`; xoá `DELETE /{Thực thể}/{id}` (tiện ích 2.0 chưa cho phép).
+- Thực thể: `KHCN_BAI_BAO_KHOA_HOC`, `KHCN_GIAI_PHAP_SANG_CHE_DON_VI` (mA_GIAI_PHAP = số bằng; loaI_GIAI_PHAP 01 sáng chế, 02 GPHI…; sO_BANG, ngaY_CAP, naM_DUOC_CAP_BANG, chU_BANG, taC_GIA_SANG_CHE…), `KHCN_NHIEM_VU_KHCN` (mA_NHIEM_VU, teN_NHIEM_VU, phaN_CAP_NHIEM_VU, phaN_LOAI_NHIEM_VU, cO_QUAN_CHU_QUAN, cO_QUAN_CHU_TRI, nguoI_CHU_TRI, tG_BAT_DAU, tG_KET_THUC, tonG_KINH_PHI, nguoN_KINH_PHI, tinH_TRANG_NV, linH_VUC_NCKH, thuoC_NHIEM_VU; bắt buộc: mã, cấp, tên, phân loại, ngày bắt đầu). Sách: chưa có dữ liệu.
+- Mã nhiệm vụ: cấp 01 Quốc gia, 02 Bộ, 03 Tỉnh, 04 Cơ sở, 05 Khác; phân loại 02 Đề tài; nguồn KP 01 NSNN, 02 Tổ chức chủ trì, 03 Khác; tình trạng 01 Hoàn thành, 03 Đang hoàn thiện NT cơ sở, 04 Đang thực hiện…; chủ quản (DM_CO_QUAN_CHU_QUAN): 08 Bộ KH&CN, 11 Bộ NN&PTNT, 15 Bộ TN&MT, 24 Ngân hàng NN, 91 Khác, UBND tỉnh theo mã tỉnh; chưa có mục "Bộ NN&MT" (gốc TN&MT chọn 15, gốc NN chọn 11).
+- Bàn làm việc: `GET KHCN_DOT_BAO_CAO/getDataDashboard/{loại}/{đơn vị}/2034/{ngày}` (13 tài sản trí tuệ, 14 sách); ô tài sản trí tuệ đang = 0 dù có dữ liệu (chưa rõ).
+- HEMIS không có trường "ngày sửa"; từng báo `ERR_CONNECTION_RESET` sau khoảng 1.000 lệnh liên tục: giới hạn tốc độ, thử lại.
+
+KHCN (bổ sung):
+- Đề tài: `/Home/ToanBoDeTai?page=N&currentFilter=&cap={mã}&from=&target=&iprivate=false&tt=0&chutri=&diachi=null&khoa=&nopoint=null`; chi tiết `POST /Home/DetailsDeTai` (form `id`). **Phân trang không ổn định** (lật trang toàn bộ từng sót khoảng 70 đề tài): lọc theo từng cấp, quét 2–3 lượt, gộp theo id. Kiểm tra tương tự cho XuatDuLieu và KhoaHocKhac.
+- Tình trạng: có "Đã nghiệm thu:" → 01 (không so /nghiệm thu/ vì "Chưa nghiệm thu" cũng khớp); đang làm → 04; quá hạn chưa nghiệm thu → 03.
+- Tài sản trí tuệ: `/KhoaHocKhac/ToanBoKhoaHocKhac?...&loai=4` (sáng chế), `loai=6` (GPHI); chi tiết `POST /KhoaHocKhac/DetailsKhoaHocKhac`; file `/KhoaHocKhac/Download/{id}?FileUrl=…`. Excel SHTT của phòng đủ trường hơn nhưng ô ngày kiểu date có ngày ≤ 12 bị đảo ngày/tháng.
+- Đề tài: chỉ lấy "Đã phê duyệt" dính năm báo cáo; bỏ cấp cơ sở (lấy từ QĐ giao), nhiệm vụ (63, 64, 75), tiêu chuẩn (43), dự án (66), điều tra cơ bản (39). Cấp cơ sở/trọng điểm/IRD đều là cấp 04, phân loại 02, chủ quản 11.
 
 ## 6. Cập nhật công cụ
 

@@ -10,9 +10,10 @@ import danhsach from './danhsach.js';
 import day from './day.js';
 import rasoat from './rasoat.js';
 import tt83 from './tt83.js';
+import caidat from './caidat.js';
 
 /* Moi man hinh: { id, title, icon, group (1 KHCN, 2 HEMIS), busy: [khoa D.busy], on: [su kien du lieu], badge(), init(root), render() } */
-const SCREENS = [quet, tonghop, danhsach, day, rasoat, tt83];
+const SCREENS = [quet, tonghop, danhsach, day, rasoat, tt83, caidat];
 const main = $('#main'), appEl = $('#app');
 const roots = {};
 let curId = null;
@@ -21,6 +22,7 @@ const navHtml = s => { const b = s.badge ? s.badge() : null; return '<a href="#'
 const drawNav = () => {
   $('#nav1').innerHTML = SCREENS.filter(s => s.group === 1).map(navHtml).join('');
   $('#nav2').innerHTML = SCREENS.filter(s => s.group === 2).map(navHtml).join('');
+  $('#nav3').innerHTML = SCREENS.filter(s => s.group === 3).map(navHtml).join('');
   document.querySelectorAll('.nav a').forEach(a => { if (a.dataset.id === curId) a.setAttribute('aria-current', 'page'); });
 };
 
@@ -47,8 +49,8 @@ const show = id => {
 };
 
 /* Du lieu doi: ve lai man dang mo, danh dau cac man khac de ve lai khi mo */
-['scan', 'stats', 'hemis', 'filter'].forEach(ev => on(ev, () => {
-  if (ev !== 'filter') reopenInfo();
+['scan', 'stats', 'hemis', 'filter', 'settings'].forEach(ev => on(ev, () => {
+  if (ev === 'scan' || ev === 'stats' || ev === 'hemis') reopenInfo();
   SCREENS.forEach(s => { if (!(s.on || []).includes(ev)) return; const r = roots[s.id]; if (!r) return; if (s.id === curId) s.render(); else r.dirty = true; });
   drawNav();
 }));

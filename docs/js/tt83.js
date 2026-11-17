@@ -5,13 +5,13 @@ import { icon, pill, screenHtml, blk, tabsHtml, empty, toast, regBlk, createBtn,
 import * as S from './store.js';
 import { D, loadHemis } from './data.js';
 import { guide } from './huongdan.js';
+import { setting } from './caidat.js';
 
 const CY = new Date().getFullYear();
 const YEARS = [CY + 1, CY, CY - 1, CY - 2];
 let root, yr = String(S.pref('tt83.year', CY)), inp = {}, ready = false, tab = 'all', err = '', tried = false, saveT = 0;
 if (!YEARS.includes(+yr)) yr = String(CY);
 
-const opt = k => inp[k] !== false;   // hai o tick mac dinh bat
 const v = id => num(inp[id]);
 const GV = [['gDH', 'Giảng viên trình độ đại học', 0.5], ['gThS', 'Giảng viên trình độ thạc sĩ', 0.75], ['gTS', 'Giảng viên trình độ tiến sĩ', 1], ['gPGS', 'Giảng viên chức danh phó giáo sư', 1], ['gGS', 'Giảng viên chức danh giáo sư', 1]];
 const COLS = ['SV chính quy', 'SV kết hợp', 'SV từ xa', 'Học viên CH', 'NCS'];
@@ -27,7 +27,7 @@ const saveSoon = () => {
 /* ---- Phan loai bai HEMIS nam Y thanh P1 / P2 / khong tinh (nho lai ket qua, chi tinh lai khi doi nam, o tick hoac du lieu) ---- */
 let memo = null, memoKey = '';
 const classify = () => {
-  const H = D.hemis, Y = +yr, ky = opt('ky');
+  const H = D.hemis, Y = +yr, ky = setting('kyYeu');
   const key = [yr, ky, H.at, D.scan ? D.scan.at : 0, D.stats ? D.stats.at : 0].join('|');
   if (memo && key === memoKey) return memo;
   /* ngay cong bo lay tu bai da quet / da tai thong ke (HEMIS khong co ngay) */
@@ -53,14 +53,18 @@ const classify = () => {
     if (g === 'P2') p2++; else if (g === 'P1') p1++; else no++;
     rows.push({ x, g, dmName, nodate });
   });
-  memoKey = key; memo = { rows, p1, p2, p1dm, p1near, p1hd, noDate, no, p2j, p2k };
+  /* tai san tri tue cap bang trong nam: 01 sang che -> P4, 02 giai phap huu ich -> P3 */
+  const yOf = x => +String(x.naM_DUOC_CAP_BANG || '').slice(0, 4) || +(String(x.ngaY_CAP || '').match(/\d{4}/) || [])[0] || 0;
+  const tt = (H.sc || []).filter(x => yOf(x) === Y), lo = x => String(x.loaI_GIAI_PHAP || '').padStart(2, '0');
+  const gp = tt.filter(x => lo(x) === '02').length, sc = tt.filter(x => lo(x) === '01').length;
+  memoKey = key; memo = { rows, p1, p2, p1dm, p1near, p1hd, noDate, no, p2j, p2k, gp, sc, hasSc: !!H.sc };
   return memo;
 };
 
 /* ---- Cong thuc TT 83 (giu nguyen ban cu) ---- */
 const compute = () => {
-  const Y = +yr, coTS = opt('ts'), C = classify();
-  const p3 = v('p3'), p4 = v('p4'), P = C.p1 + 2 * C.p2 + 3 * p3 + 5 * p4;
+  const Y = +yr, coTS = setting('coTS'), C = classify();
+  const sach = v('sach'), p3 = C.gp + sach, p4 = C.sc, P = C.p1 + 2 * C.p2 + 3 * p3 + 5 * p4;
   const gd = GV.reduce((s, g) => s + v(g[0]) * g[2], 0), GQD = v('gQD') || gd;
   let N = 0, sTC = 0, sBB = 0, nLV = 0;
   const Ms = LV.map((l, i) => {
@@ -73,7 +77,7 @@ const compute = () => {
   const thr621 = coTS ? 0.6 : 0.3, T621 = GQD ? P / GQD : null, T622 = GQD ? C.p2 * KBB / GQD : null;
   const gap621 = T621 != null && T621 < thr621 ? Math.ceil(thr621 * GQD - P) : 0;
   const gap622 = T622 != null && T622 < 0.3 ? Math.ceil(0.3 * GQD / KBB - C.p2) : 0;
-  return Object.assign({ Y, coTS, p3, p4, P, gd, GQD, N, nLV, Ms, KTC, KBB, has61, T61, T621, T622, thr621, gap621, gap622 }, C);
+  return Object.assign({ Y, coTS, sach, p3, p4, P, gd, GQD, N, nLV, Ms, KTC, KBB, has61, T61, T621, T622, thr621, gap621, gap622 }, C);
 };
 
 /* ---- Ve cac phan thay doi khi go so ---- */
@@ -101,7 +105,7 @@ const kpisHtml = R => {
 const put = (key, val, plain) => { const e = root.querySelector('[data-v="' + key + '"]'); if (!e) return; e.textContent = plain ? val : nf(val, 0); if (!plain) e.classList.toggle('z', !val); };
 const paint = R => {
   const kp = $('[data-kpis]', root); if (kp) kp.innerHTML = kpisHtml(R);
-  put('p1', R.p1); put('p1q', R.p1); put('p2', R.p2); put('p2q', 2 * R.p2); put('p3q', 3 * R.p3); put('p4q', 5 * R.p4);
+  put('p1', R.p1); put('p1q', R.p1); put('p2', R.p2); put('p2q', 2 * R.p2); put('gp', R.gp); put('gpq', 3 * R.gp); put('sachq', 3 * R.sach); put('p4', R.p4); put('p4q', 5 * R.p4);
   put('P', n2(R.P), true);
   put('pnote', (R.Y >= 2026 ? 'P1: ' + R.p1dm + ' bài trên tạp chí thuộc danh mục Bộ KH&CN' + (R.p1near ? ' (' + R.p1near + ' bài tên tạp chí gần đúng, nên sửa tên)' : '') + ' · ' + R.p1hd + ' bài theo danh mục HĐGSNN công bố đến 30/9/2026' + (R.noDate ? ' (' + R.noDate + ' bài chưa có ngày công bố vì chưa quét KHCN, tạm tính theo HĐGSNN)' : '') + '. ' : 'P1: bài trong nước theo danh mục HĐGSNN. ') +
     'P2: tạp chí ' + R.p2j + ', kỷ yếu ' + R.p2k + '. Không được tính: ' + R.no + ' bài (tạp chí quốc tế khác, trong nước không thuộc danh mục).', true);
@@ -126,7 +130,7 @@ const row = r => '<tr><td class="nowrap">' + esc(r.x.mA_BAI_BAO) + '</td><td cla
   (r.dmName ? 'Tên tạp chí nên sửa thành: ' + esc(r.dmName) : r.nodate ? 'Chưa có ngày công bố, tạm tính theo HĐGSNN' : '') + '</td></tr>';
 
 const scr = {
-  id: 'tt83', title: 'Chỉ số TT 83', icon: 'gauge', group: 2, busy: ['hemis'], on: ['hemis', 'scan', 'stats'],
+  id: 'tt83', title: 'Chỉ số TT 83', icon: 'gauge', group: 2, busy: ['hemis'], on: ['hemis', 'scan', 'stats', 'settings'],
   init(el) {
     root = el; el.innerHTML = html();
     regBlk('tt83.kpi', { scr: 'tt83', kind: 'info', title: 'Kết quả ước tính', render: () => scr.render(), xlsx: xKpi });
@@ -137,10 +141,6 @@ const scr = {
     el.addEventListener('input', e => {
       const t = e.target.closest('[data-in]'); if (!t || !D.hemis) return;
       inp[t.dataset.in] = t.value; saveSoon(); paint(compute());
-    });
-    el.addEventListener('change', e => {
-      const o = e.target.closest('[data-opt]'); if (!o) return;
-      inp[o.dataset.opt] = o.checked; saveSoon(); scr.render();
     });
     el.addEventListener('click', async e => {
       const tb = e.target.closest('[data-tab]'); if (tb) { tab = tb.dataset.tab; scr.render(); return; }
@@ -163,20 +163,20 @@ const scr = {
     const L = tab === 'all' ? R.rows : R.rows.filter(r => r.g === tab), MAXR = 500;
     const cnt = g => R.rows.filter(r => r.g === g).length;
     sub.textContent = 'Tính từ ' + H.list.length.toLocaleString('vi-VN') + ' bài trên HEMIS (lấy lúc ' + fmtTime(H.at) + ') · năm báo cáo ' + Y + ' (01/01 – 31/12)';
+    const tsrc = R.hasSc ? 'từ HEMIS, phân hệ Tài sản trí tuệ' : 'chưa đọc được phân hệ Tài sản trí tuệ, bấm Lấy lại từ HEMIS';
+    const prow = (name, from, cnt, k, q) => '<tr><td>' + name + '<div class="muted small">' + from + '</div></td><td class="num">' + cnt + '</td><td class="num">' + k + '</td><td class="num" data-v="' + q + '"></td></tr>';
     const tbl = (head, rows) => '<div class="tw"><table class="tbl"><thead><tr>' + head + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
     body.innerHTML = errHtml +
-      blk('tt83.tuychon', 'Tuỳ chọn tính', '<div class="toolbar"><label class="chk"><input type="checkbox" data-opt="ts"' + (opt('ts') ? ' checked' : '') + '>Trường có đào tạo tiến sĩ</label>' +
-        '<label class="chk"><input type="checkbox" data-opt="ky"' + (opt('ky') ? ' checked' : '') + '>Tính kỷ yếu ISI/Scopus là bài WoS/Scopus</label></div>' +
-        '<div class="more">Các ô tick chỉ đổi con số ước tính trên công cụ này, không đổi gì trên HEMIS. Số liệu anh/chị nhập bên dưới được lưu trên máy này, theo từng năm.</div>', { fixed: true }) +
       blk('tt83.kpi', 'Kết quả ước tính', '<div class="stats c3" data-kpis></div>', { pad: true }) +
       '<div class="grid2">' +
       blk('tt83.sanpham', 'Sản phẩm KHCN năm ' + Y, tbl('<th>Nhóm</th><th class="num">Số lượng</th><th class="num">Hệ số</th><th class="num">Quy đổi</th>',
-        '<tr><td>P1 Bài trong nước được công nhận</td><td class="num" data-v="p1"></td><td class="num">1</td><td class="num" data-v="p1q"></td></tr>' +
-        '<tr><td>P2 Bài WoS/Scopus</td><td class="num" data-v="p2"></td><td class="num">2</td><td class="num" data-v="p2q"></td></tr>' +
-        '<tr><td>P3 Sách chuyên khảo + giải pháp hữu ích ' + pill('mut', 'nhập tay', 'edit') + '</td><td class="num">' + cin('p3', '', 'Số sách chuyên khảo và giải pháp hữu ích') + '</td><td class="num">3</td><td class="num" data-v="p3q"></td></tr>' +
-        '<tr><td>P4 Bằng sáng chế ' + pill('mut', 'nhập tay', 'edit') + '</td><td class="num">' + cin('p4', '', 'Số bằng độc quyền sáng chế') + '</td><td class="num">5</td><td class="num" data-v="p4q"></td></tr>' +
+        prow('P1 Bài trong nước được công nhận', 'từ HEMIS', '<span data-v="p1"></span>', 1, 'p1q') +
+        prow('P2 Bài WoS/Scopus', 'từ HEMIS', '<span data-v="p2"></span>', 2, 'p2q') +
+        prow('P3 Giải pháp hữu ích', tsrc, '<span data-v="gp"></span>', 3, 'gpq') +
+        prow('P3 Sách chuyên khảo', 'nhập tay', cin('sach', '', 'Số sách chuyên khảo trong năm'), 3, 'sachq') +
+        prow('P4 Bằng sáng chế', tsrc, '<span data-v="p4"></span>', 5, 'p4q') +
         '<tr class="tot"><td>Tổng P</td><td></td><td></td><td class="num" data-v="P"></td></tr>') +
-        '<div class="more" data-v="pnote"></div><div class="more">Trên HEMIS, mục Sách và Sáng chế của Trường hiện chưa có dữ liệu nên P3, P4 phải nhập tay (trong năm báo cáo).</div>', { tools: '<span class="muted small">tự tính từ HEMIS</span>' }) +
+        '<div class="more" data-v="pnote"></div>') +
       blk('tt83.phongkhac', 'Số liệu xin phòng khác', '<div class="more">Giảng viên quy đổi GQĐ (Phòng Tổ chức cán bộ)</div>' +
         tbl('<th>Trình độ / chức danh</th><th class="num">Hệ số</th><th class="num">Số người</th>',
           GV.map(g => '<tr><td>' + g[1] + '</td><td class="num">× ' + String(g[2]).replace('.', ',') + '</td><td class="num">' + cin(g[0], '', 'Số ' + g[1].toLowerCase()) + '</td></tr>').join('') +
@@ -217,8 +217,8 @@ const shKpi = R => ({ name: 'Chỉ số', head: 1, rows: [['Chỉ số', 'Yêu c
   ['6.2.1 Sản phẩm KHCN quy đổi / giảng viên quy đổi', R.thr621, R.T621 == null ? '' : R.T621, 'tỷ số', KQ(R.T621, R.thr621, true)],
   ['6.2.2 Bài WoS/Scopus × KLV công bố / giảng viên quy đổi', R.coTS ? 0.3 : '', R.T622 == null ? '' : R.T622, 'tỷ số', KQ(R.T622, 0.3, R.coTS)],
   ['GQĐ (giảng viên quy đổi)', '', R.GQD || '', 'người', ''], ['KLV kinh phí', '', R.KTC, 'hệ số', ''], ['KLV công bố', '', R.KBB, 'hệ số', '']] });
-const shSp = R => ({ name: 'Sản phẩm', head: 1, totals: [5], rows: [['Nhóm sản phẩm năm ' + R.Y, 'Số lượng', 'Hệ số', 'Quy đổi'],
-  ['P1 Bài trong nước được công nhận', R.p1, 1, R.p1], ['P2 Bài WoS/Scopus', R.p2, 2, 2 * R.p2], ['P3 Sách chuyên khảo + giải pháp hữu ích', R.p3, 3, 3 * R.p3], ['P4 Bằng sáng chế', R.p4, 5, 5 * R.p4], ['Tổng P', '', '', R.P]] });
+const shSp = R => ({ name: 'Sản phẩm', head: 1, totals: [6], rows: [['Nhóm sản phẩm năm ' + R.Y, 'Số lượng', 'Hệ số', 'Quy đổi'],
+  ['P1 Bài trong nước được công nhận', R.p1, 1, R.p1], ['P2 Bài WoS/Scopus', R.p2, 2, 2 * R.p2], ['P3 Giải pháp hữu ích (HEMIS)', R.gp, 3, 3 * R.gp], ['P3 Sách chuyên khảo (nhập tay)', R.sach, 3, 3 * R.sach], ['P4 Bằng sáng chế (HEMIS)', R.p4, 5, 5 * R.p4], ['Tổng P', '', '', R.P]] });
 const shDs = (R, g) => ({ name: GLN[g] === 'Tất cả' ? 'Danh sách bài' : 'Bài ' + GLN[g], head: 1, freezeCols: 1, rows: [['Mã HEMIS', 'Tên bài báo', 'Tạp chí', 'Được tính vào', 'Ghi chú']]
   .concat(R.rows.filter(r => g === 'all' || r.g === g).map(r => [r.x.mA_BAI_BAO, r.x.teN_BAI_BAO, r.x.teN_TAP_CHI, GL[r.g], r.dmName ? 'Tên tạp chí nên sửa thành: ' + r.dmName : r.nodate ? 'Chưa có ngày công bố, tạm tính theo HĐGSNN' : ''])) });
 const withR = fn => { if (!D.hemis) { toast('Chưa có dữ liệu HEMIS để tải.', 'err'); return; } fn(compute()); };
