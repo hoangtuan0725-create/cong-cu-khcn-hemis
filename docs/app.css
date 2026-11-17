@@ -276,3 +276,13 @@ button.sel { cursor: pointer }
 .toolbar .chk { margin-right: 12px }
 .tbl tr:has(.cell-in) td { vertical-align: middle }
 .bctl { display: inline-flex; align-items: center; gap: 2px }
+
+/* ---------- Cài đặt ---------- */
+.setlist { display: grid; gap: 16px; max-width: 760px }
+.setlist .card-h { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line) }
+.setgrp { padding-top: 4px; padding-bottom: 4px }
+.setrow { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line); cursor: pointer }
+.setrow:last-child { border-bottom: 0 }
+.setrow input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--pri); flex: none; cursor: pointer }
+.setrow > span { display: flex; flex-direction: column; gap: 2px }
+.nav.bottom { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px }

@@ -74,6 +74,18 @@ print(json.dumps({'sheets': wb.sheetnames, 'rows': ws.max_row, 'w': ws.column_di
   await xl('day.bang', 'Đẩy lên HEMIS');
   const total = await pg.locator(S('day') + ' [data-ck]').count();
   ok(total >= 3, 'có ít nhất 3 bài sẽ đẩy (' + total + ')');
+  /* mac dinh (Cai dat) chi day bai da duyet: bai chua duyet nam o tab rieng, khong tick duoc */
+  await pg.click(S('day') + ' [data-tab="chua"]');
+  const nChua = await pg.locator(S('day') + ' tbody tr[data-k]').count();
+  ok(nChua > 0 && await pg.locator(S('day') + ' [data-ck]').count() === 0, 'tab Chưa duyệt có ' + nChua + ' bài, không có ô tick');
+  await pg.goto(APP + '#caidat'); await pg.waitForSelector('[data-cd="chiDuyet"]'); await shot('14 Cài đặt');
+  await pg.uncheck('[data-cd="chiDuyet"]');
+  await pg.goto(APP + '#day'); await pg.waitForSelector(S('day') + ' tbody tr[data-k]');
+  const total2 = await pg.locator(S('day') + ' [data-ck]').count();
+  ok(total2 > total && !(await pg.locator(S('day') + ' [data-tab="chua"]').count()), 'bỏ tick trong Cài đặt thì bài chưa duyệt vào danh sách đẩy (' + total + ' lên ' + total2 + ')');
+  await pg.goto(APP + '#caidat'); await pg.waitForSelector('[data-cd="chiDuyet"]'); await pg.check('[data-cd="chiDuyet"]');
+  await pg.goto(APP + '#day'); await pg.waitForSelector(S('day') + ' tbody tr[data-k]');
+  ok(await pg.locator(S('day') + ' [data-ck]').count() === total, 'bật lại thì về ' + total + ' bài');
   await untickAll('day');
   ok(/0 bài/.test(await pg.locator(S('day') + ' [data-foot]').innerText()), 'bỏ tick hết thì chân màn báo 0 bài');
   const keys = [];
@@ -150,6 +162,11 @@ print(json.dumps({'sheets': wb.sheetnames, 'rows': ws.max_row, 'w': ws.column_di
   await pg.waitForFunction(() => { const i = document.querySelector('[data-scr="tt83"] [data-in="gQD"]'); return i && i.value === '500'; }, null, { timeout: 15000 }).catch(() => {});
   ok(await pg.locator(S('tt83') + ' [data-in="gQD"]').inputValue() === '500', 'tải lại trang, ô GQĐ vẫn là 500');
   ok(await pg.locator(S('tt83') + ' [data-yr]').inputValue() === '2025', 'năm 2025 vẫn được nhớ');
+  await pg.selectOption(S('tt83') + ' [data-yr]', '2026'); await pg.waitForSelector(S('tt83') + ' [data-v="gp"]'); await pg.waitForTimeout(300);
+  const gp = (await pg.locator(S('tt83') + ' [data-v="gp"]').innerText()).trim(), p4 = (await pg.locator(S('tt83') + ' [data-v="p4"]').innerText()).trim();
+  ok(gp === '3' && p4 === '2', 'năm 2026: P3 giải pháp hữu ích = ' + gp + ', P4 sáng chế = ' + p4 + ' (lấy từ HEMIS, đúng 3 và 2)');
+  ok(!(await pg.locator(S('tt83') + ' [data-opt]').count()), 'không còn ô tuỳ chọn trên màn TT 83');
+  await shot('15 TT83 P3 P4 từ HEMIS');
 
   /* ---------- 5. Điện thoại ---------- */
   console.log('10. Điện thoại 390px');
