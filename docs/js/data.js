@@ -136,7 +136,7 @@ export const loadStats = async (f, t, fresh) => {
 export const HEMIS_BASE = '/gwdev/nckh/v5/';
 export const HEMIS_API = HEMIS_BASE + 'KHCN_BAI_BAO_KHOA_HOC';
 /* Lay toan bo ban ghi cua Truong trong mot phan he (body GetData phai dung dang nay, dang khac bi bo qua) */
-const getAll = async (entity, say) => {
+export const getAll = async (entity, say) => {
   const all = [];
   for (let p = 1; p <= 50; p++) {
     const j = await B.hemis('POST', HEMIS_BASE + entity + '/GetData', { filters: [{ valueIsField: false, filters: [], stringCompareOption: 0, field: 'doN_VI_ID', operator: 'eq', value: JSON.stringify(DV) }], sorts: [], includes: [], pageInfo: { page: p, pageSize: 200 } });
@@ -158,5 +158,18 @@ export const loadHemis = async () => {
     await S.set('data.hemis', D.hemis);
     emit('hemis');
     return D.hemis;
+  } finally { busy('hemis'); }
+};
+
+/* Nhiem vu KHCN (de tai) cua Truong tren HEMIS: D.nv = { at, list } */
+export const loadNv = async () => {
+  if (D.busy.hemis) return D.nv;
+  try {
+    busy('hemis', 'Đang lấy đề tài của Trường trên HEMIS…');
+    const list = await getAll('KHCN_NHIEM_VU_KHCN', n => busy('hemis', 'Đang lấy đề tài của Trường trên HEMIS: ' + n + ' đề tài…'));
+    D.nv = { at: Date.now(), list };
+    await S.set('data.nv', D.nv);
+    emit('detai');
+    return D.nv;
   } finally { busy('hemis'); }
 };
