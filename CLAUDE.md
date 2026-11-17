@@ -22,7 +22,7 @@ Từ 30/10/2026 công cụ là **trang web tĩnh trên GitHub Pages** (phương 
 | Đường dẫn | Nội dung |
 |---|---|
 | `docs/` | Trang công cụ, đăng tại `https://hoangtuan0725-create.github.io/cong-cu-khcn-hemis/` (Pages lấy từ nhánh `main`, thư mục `/docs`). ES modules, không thư viện. |
-| `docs/js/app.js` | Khung: menu trái, chuyển màn theo `#quet`, `#tonghop`, `#danhsach`, `#day`, `#rasoat`, `#tt83`; trạng thái tiện ích ở chân menu. Hợp đồng màn hình: `{ id, title, icon, group, busy, on, badge, init(el), render() }`. |
+| `docs/js/app.js` | Khung: menu trái, chuyển màn theo `#quet`, `#tonghop`, `#danhsach`, `#day`, `#tt83`, `#caidat` (`#rasoat` cũ chuyển về `#day`); trạng thái tiện ích ở chân menu. Hợp đồng màn hình: `{ id, title, icon, group, busy, on, badge, init(el), render() }`. |
 | `docs/js/core.js` | Nghiệp vụ dùng chung: `MAP` (ghép loại KHCN → HEMIS), so tên tạp chí với danh mục Bộ KH&CN (`matchDM`), `grpOf`, `LV`, định dạng số/ngày, xuất CSV. `danhmuc.js`: 341 tạp chí QĐ 2244. |
 | `docs/js/bridge.js` | Gọi tiện ích qua `window.postMessage`: `khcn(path, form)` trả Document, `hemis(method, path, data)` trả JSON, `openEdit(id, tênTạpChí)`. |
 | `docs/js/data.js` | Tải dữ liệu KHCN (quét năm, thống kê nhiều năm kèm chi tiết tác giả) và HEMIS; lưu IndexedDB (`store.js`), phát sự kiện `scan`, `stats`, `hemis`, `filter`, `busy`. |
@@ -30,7 +30,10 @@ Từ 30/10/2026 công cụ là **trang web tĩnh trên GitHub Pages** (phương 
 | `docs/js/loc.js` | Bộ lọc: **mỗi bảng một bộ lọc riêng** (`filter('tonghop')`, `filter('mot')`, `filter('danhsach')`), bảng trượt "Bộ lọc", nhãn điều kiện có nút X. |
 | `docs/js/xlsx.js` | Xuất file .xlsx thật, không thư viện: tiêu đề đậm, cố định tiêu đề, cột tự rộng (tối đa 60, chữ dài tự xuống dòng), số để dạng số, ô gộp, dòng tổng. |
 | `docs/js/caidat.js` | Màn Cài đặt (cuối menu trái): tuỳ chọn dùng chung, lưu localStorage `t2h.cd.*`; đọc bằng `setting(khoá)`, đổi thì phát sự kiện `settings`. **Tuỳ chọn không hiện trên màn làm việc, gom hết vào đây** (Tuấn yêu cầu 17/11). |
-| `docs/js/quet.js`, `tonghop.js`, `danhsach.js`, `day.js`, `rasoat.js`, `tt83.js` | Sáu màn: Quét & kiểm tra, Bảng tổng hợp (nhiều tầng, bảng một chiều, mục tự chọn), Danh sách bài, Đẩy lên HEMIS, Rà soát bài đã có, Chỉ số TT 83. |
+| `docs/js/quet.js`, `tonghop.js`, `danhsach.js`, `tt83.js` | Quét & kiểm tra, Bảng tổng hợp (nhiều tầng, bảng một chiều, mục tự chọn), Danh sách bài, Chỉ số TT 83. |
+| `docs/js/day.js` | Màn **Đẩy lên HEMIS**: hàng chọn loại dữ liệu Bài báo · Đề tài · Tài sản trí tuệ (Tuấn yêu cầu mọi loại đẩy lên HEMIS nằm chung một màn). Mỗi loại là một mô-đun `{ id, title, on, busy, badge, acts, sub, init(ctx), onClick, onChange, onInput, render(body), foot }`. Mỗi loại có tab Thêm / Sửa / (Xoá) / Đã khớp, tick rồi bấm "Chạy N thay đổi" ở chân màn; không có khối Tổng quan. |
+| `docs/js/baibao.js` | Loại Bài báo: gộp Đẩy + Rà soát cũ (tab Thêm, Sửa, Chưa duyệt, Trùng trên HEMIS, Chỉ có trên HEMIS, Bỏ qua, Đã khớp). Không xoá bài nào. |
+| `docs/js/detai.js` | Loại Đề tài (KHCN_NHIEM_VU_KHCN): quét KHCN theo từng cấp, nhiều lượt; đề tài cấp cơ sở nhập từ QĐ giao, nhập tay, loại trừ (lưu IndexedDB `nv.qd`, `nv.tay`, `nv.loaitru`, `nv.chon`); chọn cơ quan chủ quản khi không tự xác định (Mẫu 16); thống kê; xoá thì tải file sao lưu JSON trước. Giả định HTML KHCN ghi ở đầu file (chưa thử dữ liệu thật). |
 | `docs/tien-ich-khcn-hemis.zip` | Tiện ích đóng gói để người dùng tải từ trang. Tạo lại bằng `python3 "đóng gói tiện ích.py"` mỗi khi sửa `extension/`. |
 | `extension/` | Tiện ích MV3 bản 2.1.0 (2.1: cho phép DELETE trên HEMIS). `bridge.js` (content script, chỉ chạy trên trang công cụ) chuyển yêu cầu tới `background.js`; background tìm hoặc mở ngầm tab KHCN/HEMIS rồi chạy `fetch` trong tab đó bằng `chrome.scripting.executeScript` (dùng cookie KHCN và `localStorage.access_token` của HEMIS). Chỉ nhận lệnh từ trang công cụ; HEMIS chỉ cho GET/POST/PUT/DELETE trên `/gwdev/`. Bấm biểu tượng tiện ích = mở trang công cụ ở tab mới. |
 | `thiết kế/` | Mẫu giao diện Tuấn đã duyệt (HTML + ảnh Mẫu 1–9; Mẫu 7–9: khối thu gọn, đóng, tạo lại). |
@@ -59,9 +62,10 @@ Hai màn chưa có mẫu (Danh sách bài, Rà soát bài đã có) làm cùng k
 
 ### 3.4. Kế hoạch từ bàn giao lần 2 (Tuấn duyệt thứ tự 17/11/2026)
 Từ 30/10 đến 17/11, Cowork làm thẳng trên HEMIS bằng JavaScript dán vào tab (đẩy bài 2026, tài sản trí tuệ, đề tài; xoá dữ liệu trước 2026 sau khi sao lưu). Việc của Claude Code là đưa các chức năng đó vào app. **HEMIS không tự tính 6.1/6.2** (Cowork đã kiểm tra 13/11), app phải tự tính.
+0. **Thứ tự Tuấn chốt lại 17/11:** Đề tài → Tài sản trí tuệ → Xoá theo năm, đối chiếu → Sao lưu (cuối).
 1. **Đợt 1 (xong 17/11):** Cài đặt "Chỉ đẩy bài đã phê duyệt" (mặc định bật; bài chưa duyệt ở tab "Chưa duyệt"); TT 83 lấy P3 giải pháp hữu ích và P4 sáng chế từ phân hệ Tài sản trí tuệ HEMIS theo năm cấp bằng, chỉ sách nhập tay; hai tuỳ chọn TT 83 chuyển vào Cài đặt. Mẫu 10–12.
 2. **Đợt 2:** Sao lưu HEMIS (3 phân hệ, chi tiết đầy đủ qua DetailWithPermission) thành file JSON; Khôi phục từ file.
-3. **Đợt 3:** màn Đề tài (KHCN_NHIEM_VU_KHCN): quét đề tài các cấp trên KHCN (theo từng cấp, 2–3 lượt), so với HEMIS ra bảng THÊM/SỬA/XOÁ có tick, nhập tay, nhập đề tài cấp cơ sở từ QĐ giao theo đợt, thống kê cấp × chủ quản × tình trạng; nhớ danh sách ngoại lệ/loại trừ (Tuấn nhập trong app, không ghi vào mã). Cần tiện ích 2.1 cho phép DELETE.
+3. **Đợt 3 (xong 18/11, chưa thử dữ liệu thật):** Đề tài nằm trong màn Đẩy lên HEMIS (Mẫu 13–16); Bài báo cùng kiểu, gộp Rà soát. Tránh lỗi Cowork: không tự đặt mã (thiếu mã thì không tick được), chỉ "Đã nghiệm thu:" mới là hoàn thành, đề tài nghiệm thu sớm lấy ngày nghiệm thu làm ngày kết thúc, cảnh báo ngày bất thường, quét nhiều lượt; bài báo đọc hết các trang trạng thái duyệt nhiều lượt; GetData trả bản ghi không phải của Trường thì dừng. Kế hoạch gốc: màn Đề tài (KHCN_NHIEM_VU_KHCN): quét đề tài các cấp trên KHCN (theo từng cấp, 2–3 lượt), so với HEMIS ra bảng THÊM/SỬA/XOÁ có tick, nhập tay, nhập đề tài cấp cơ sở từ QĐ giao theo đợt, thống kê cấp × chủ quản × tình trạng; nhớ danh sách ngoại lệ/loại trừ (Tuấn nhập trong app, không ghi vào mã). Cần tiện ích 2.1 cho phép DELETE.
 4. **Đợt 4:** màn Tài sản trí tuệ: quét KHCN loại 4/6 + nhập Excel SHTT của phòng, cảnh báo, đẩy/sửa.
 5. **Đợt 5:** xoá theo năm/phân hệ (bắt buộc sao lưu trước); hiện số đếm của app cạnh Bàn làm việc HEMIS.
 Mỗi màn mới phải có mẫu cho Tuấn duyệt; giữ giao diện **gọn, tối giản**.

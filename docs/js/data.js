@@ -32,13 +32,27 @@ const fetchList = async (f, t, say) => {
   say('Đang lấy danh sách bài báo…');
   const d = await B.khcn('/TrichXuatCongBo?from=' + f + '&target=' + t);
   const rows = rowsOf(d).map(r => [...r.children].map(cellTxt));
-  const xd = np => B.khcn('/CongBo/XuatDuLieu?page=1&currentFilter=&from=' + f + '&target=' + t + '&curprivate=false&loai=null&diachi=null&khoa=&nopoint=' + np);
-  const titles = doc => new Set(rowsOf(doc).map(r => norm(r.children[1] ? r.children[1].innerText : '')));
+  /* Trang thai duyet: doc HET cac trang, 2 luot (them luot 3 neu luot 2 con dong moi), gop theo ten bai.
+     Ly do: phan trang KHCN khong on dinh (Cowork tung sot ~70 de tai); doc thieu thi bai da duyet bi coi la chua duyet. */
+  const xdPage = (np, p) => B.khcn('/CongBo/XuatDuLieu?page=' + p + '&currentFilter=&from=' + f + '&target=' + t + '&curprivate=false&loai=null&diachi=null&khoa=&nopoint=' + np);
+  const xdAll = async np => {
+    const out = new Map();
+    for (let pass = 1; pass <= 3; pass++) {
+      const before = out.size; let prev = '';
+      for (let p = 1; p <= 200; p++) {
+        const rs = rowsOf(await xdPage(np, p)).filter(r => r.children[1]), sig = rs.map(r => norm(r.children[1].innerText)).join('|');
+        if (!rs.length || sig === prev) break;
+        prev = sig; rs.forEach(r => { const k = norm(r.children[1].innerText), m = (r.getAttribute('ondblclick') || r.innerHTML).match(/ShowDeTails\('(\d+)'/); if (!out.has(k) || m) out.set(k, m ? m[1] : out.get(k) || ''); });
+      }
+      if (pass >= 2 && out.size === before) break;
+    }
+    return out;
+  };
   say('Đang lấy trạng thái phê duyệt…');
-  const [all, ap, cs, nc] = await Promise.all(['null', '1', '2', 'true'].map(xd));
-  const A = titles(ap), C = titles(cs), N = titles(nc);
+  const [all, ap, cs, nc] = await Promise.all(['null', '1', '2', 'true'].map(xdAll));
+  const A = new Set(ap.keys()), C = new Set(cs.keys()), N = new Set(nc.keys());
   const ids = {};
-  rowsOf(all).forEach(r => { const m = (r.getAttribute('ondblclick') || r.innerHTML).match(/ShowDeTails\('(\d+)'/); if (m && r.children[1]) ids[norm(r.children[1].innerText)] = m[1]; });
+  all.forEach((id, k) => { if (id) ids[k] = id; });
   return rows.filter(r => r[5]).map(r => {
     const k = norm(r[5]), d = toISO(r[11]);
     return {
@@ -141,6 +155,8 @@ export const getAll = async (entity, say) => {
   for (let p = 1; p <= 50; p++) {
     const j = await B.hemis('POST', HEMIS_BASE + entity + '/GetData', { filters: [{ valueIsField: false, filters: [], stringCompareOption: 0, field: 'doN_VI_ID', operator: 'eq', value: JSON.stringify(DV) }], sorts: [], includes: [], pageInfo: { page: p, pageSize: 200 } });
     all.push(...(j.data || []));
+    /* chot chan: GetData sai dang tung tra ve ban ghi cua truong khac; thay la dung ngay, khong chay tiep */
+    if ((j.data || []).some(x => x.doN_VI_ID && String(x.doN_VI_ID).toLowerCase() !== DV)) throw new Error('HEMIS trả về dữ liệu không phải của Trường (' + entity + '). Công cụ dừng lại để an toàn; báo lại cho người phụ trách công cụ.');
     if (say) say(all.length);
     if (!j.data || j.data.length < 200) break;
   }
