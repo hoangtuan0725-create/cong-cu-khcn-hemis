@@ -7,9 +7,8 @@ import { D, loadHemis } from './data.js';
 import { guide } from './huongdan.js';
 import baibao from './baibao.js';
 import detai from './detai.js';
+import tstt from './tstt.js';
 
-const tstt = { id: 'tstt', title: 'Tài sản trí tuệ', on: [], busy: [], badge: () => 0, acts: () => '', sub: () => 'Tài sản trí tuệ',
-  render: body => { body.innerHTML = '<div class="card">' + empty('info', 'Sắp có', 'Phần đẩy tài sản trí tuệ (sáng chế, giải pháp hữu ích) đang làm ở đợt sau.') + '</div>'; }, foot: () => '' };
 const KINDS = [baibao, detai, tstt];
 let root, cur = KINDS.find(k => k.id === pref('day.kind', 'baibao')) || baibao, err = '', tried = false;
 

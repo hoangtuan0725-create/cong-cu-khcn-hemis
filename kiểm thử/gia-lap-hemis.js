@@ -1,7 +1,7 @@
 // Các bước kiểm thử cho màn Danh sách bài, Đẩy lên HEMIS, Rà soát, Chỉ số TT 83 và giao diện điện thoại.
 // Được gia-lap.test.js gọi sau bước Bảng tổng hợp (lúc đó D.scan là năm 2025, D.stats là 2021–2026).
 const fs = require('fs'), os = require('os'), path = require('path'), { execFileSync } = require('child_process');
-module.exports = async ({ pg, APP, shot, idle, ok, writes, hem, nv, dts, dtIn }) => {
+module.exports = async ({ pg, APP, shot, idle, ok, writes, hem, nv, dts, dtIn, tstt }) => {
   const S = s => '[data-scr="' + s + '"]';
   const OUT = process.env.ANH || path.join(os.tmpdir(), 'anh-kiem-thu');
   /* bam nut Excel o goc khoi, luu file va mo bang openpyxl: co dong, cot A du rong */
@@ -215,6 +215,101 @@ print(json.dumps({'sheets': wb.sheetnames, 'rows': ws.max_row, 'w': ws.column_di
   ok(nv.find(x => x.mA_NHIEM_VU === 'DT3-0').tonG_KINH_PHI === dts.find(d => d.ma === 'DT3-0').kp, 'đề tài sửa: kinh phí đã khớp KHCN');
   await shot('16c Đề tài sau khi chạy');
 
+  /* ---------- Tài sản trí tuệ ---------- */
+  console.log('8c. Tài sản trí tuệ');
+  /* file Excel SHTT giả (tên người, số bằng bịa): ô ngày kiểu Date bị đảo, ô ngày kiểu chữ, chủ bằng ngoài TLU, cột chủ bằng lệch, đơn, bằng quốc tế */
+  const fx = path.join(OUT, 'Thống kê SHTT thử.xlsx');
+  execFileSync('python3', ['-I', '-c', `
+import sys, datetime, openpyxl
+wb = openpyxl.Workbook(); wb.remove(wb.active)
+H1 = ['TT', 'Số bằng', 'Số đơn', 'Ngày nộp đơn', 'Số QĐ ', 'Ngày cấp', 'Năm cấp', 'Tên bằng ', 'Chủ bằng', 'Địa chỉ trên bằng', 'Tác giả', 'Đơn vị công tác']
+D = datetime.datetime
+def sh(name, head_row, rows, head=H1):
+    ws = wb.create_sheet(name); ws.cell(1, 1, 'BẰNG ĐỘC QUYỀN')
+    for j, h in enumerate(head): ws.cell(head_row, j + 1, h)
+    for i, r in enumerate(rows):
+        for j, v in enumerate(r):
+            c = ws.cell(head_row + 1 + i, j + 1, v)
+            if isinstance(v, D): c.number_format = 'dd/mm/yyyy'
+TLU = 'Trường Đại học Thủy lợi'
+sh('TK_DQSC', 2, [[1, '99999', '', None, '', '01/01/2026', 2026, 'Thống kê không đọc', TLU, '', 'A', '']])
+sh('Bang_DQSC', 2, [
+  [1, '70001', '1-2025-0010', None, '1/QĐ', '15/03/2026', 2026, 'Thiết bị thử nghiệm số một', TLU, None, 'Nguyễn Văn Thử', 'Khoa Thử'],
+  [2, '70002', '1-2025-0011', None, '2/QĐ', D(2026, 6, 5), 2026, 'Phương pháp thử số hai', 'ĐHTL', None, 'Trần Thử', 'Khoa Thử'],
+  [3, '70003', '', None, '3/QĐ', D(2026, 9, 20), 2026, 'Máy thử của công ty', 'Công ty Không Có Thật', 'Hà Nội', 'Vũ Thử', 'Công ty'],
+  [4, '5001', '', None, '4/QĐ', '10/02/2026', 2026, 'Giải pháp sửa thử', 'ĐHTL', None, 'Đỗ Thử', 'Khoa Thử'],
+  [5, '70005', '1-2025-0001', '01/12/2025', '123/QĐ-SHTT', '20/01/2026', 2026, 'Bằng khớp thử', TLU, None, 'Lê Thử A\\nLê Thử B', 'Khoa Thử'],
+  [6, 'Đơn ký số', '', None, '', None, None, 'Đơn chưa thành bằng', TLU, None, 'Mai Thử', ''],
+  [7, None, '', None, '', None, None, 'Chưa có số bằng thử', TLU, None, 'Mai Thử', ''],
+  [8, '60001', '', None, '', '01/01/2024', 2024, 'Bằng cũ ngoài năm', TLU, None, 'Mai Thử', ''],
+  [9, '70006', '', None, '', '05/05/2026', 2025, 'Bằng lệch năm cấp', TLU, None, 'Mai Thử', ''],
+])
+sh('Bang_GPHI', 3, [
+  [1, '8001', '', None, '', '11/11/2026', 2026, 'Giải pháp hữu ích thử một', 'Phạm Thử A\\nPhạm Thử B', 'Bộ môn thử - ĐHTL', None, ''],
+  [2, '8002', '', None, '', D(2026, 4, 3), 2026, 'Giải pháp hữu ích thử hai', 'ĐHTL', None, 'Ngô Thử', ''],
+  [3, '8003', '', None, '', '09/09/2026', 2026, 'Thiết bị thử nghiệm số một', 'ĐHTL', None, 'Ngô Thử', ''],
+], H1 + ['Ghi chú'])
+sh('Bang_sangche_QT', 3, [[1, 'Mã số: 202699887766B\\nCấp ngày 07/10/2026', 'Bằng quốc tế thử', 'Trần Thử', 'Cơ quan Sáng chế Thử', 2026]], ['TT', 'Mã số', 'Tên sáng chế quốc tế', 'Tác giả', 'Nơi cấp', 'Năm cấp'])
+wb.create_sheet('Copyright').cell(1, 1, 'Bản quyền')
+wb.save(sys.argv[1])`, fx]);
+  const DT = S('day'), tt = k => writes.filter(w => w[0] === k), ttTab = async t => { await pg.click(DT + ' [data-tab="' + t + '"]'); await pg.waitForTimeout(150); };
+  await pg.goto(APP + '#day'); await pg.waitForSelector(DT + ' [data-kind="tstt"]'); await pg.click(DT + ' [data-kind="tstt"]');
+  await pg.waitForSelector(DT + ' [data-tt-scan]'); await pg.selectOption(DT + ' [data-tt-yr]', '2026');
+  ok(/chưa có nguồn/.test(await pg.locator(DT + ' [data-sub]').innerText()), 'chưa có nguồn thì tóm tắt báo chưa có nguồn');
+  await pg.click(DT + ' [data-tt-scan]'); await pg.waitForTimeout(300); await idle();
+  await pg.waitForFunction(() => /KHCN: 6 bản ghi/.test(document.querySelector('[data-scr="day"] [data-blk="tt.nguon"]').textContent), null, { timeout: 30000 });
+  ok(true, 'quét KHCN đủ 6 bản ghi (loại 4 và 6) dù lượt đầu sót một dòng');
+  await pg.setInputFiles(DT + ' [data-tt-file]', fx); await pg.waitForFunction(() => /Thống kê SHTT thử/.test(document.querySelector('[data-scr="day"] [data-blk="tt.nguon"]').textContent), null, { timeout: 15000 }).catch(async e => { console.log('DEBUG', await pg.locator('.toast').allInnerTexts(), errs); throw e; });
+  await pg.waitForTimeout(300);
+  const tabs = await pg.locator(DT + ' [data-blk="tt.bang"] .tabs').innerText();
+  ok(/Thêm \(10\)/.test(tabs) && /Sửa \(1\)/.test(tabs) && /Bỏ qua \(5\)/.test(tabs) && /Đã khớp \(1\)/.test(tabs), 'tab: Thêm 10, Sửa 1, Bỏ qua 5, Đã khớp 1 (' + tabs.replace(/\s+/g, ' ') + ')');
+  ok(/Excel \+ KHCN/.test(await pg.locator(DT + ' tr:has-text("70001")').innerText()), 'bằng 70001 có ở cả hai nguồn');
+  const r2 = await pg.locator(DT + ' tr:has-text("70002")').innerText();
+  ok(/06\/05\/2026/.test(r2) && /Đã đổi lại ngày\/tháng/.test(r2), 'ô ngày Date 05/06 bị đảo được đổi lại thành 06/05/2026 kèm cảnh báo');
+  ok(/04\/03\/2026/.test(await pg.locator(DT + ' tr:has-text("8002")').innerText()), 'giải pháp 8002 đổi lại thành 04/03/2026');
+  ok(/15\/03\/2026/.test(await pg.locator(DT + ' tr:has-text("70001")').innerText()) && !/Đã đổi lại/.test(await pg.locator(DT + ' tr:has-text("70001")').innerText()), 'ô ngày kiểu chữ 15/03/2026 đọc đúng như chữ, không cảnh báo');
+  ok(/07\/10\/2026/.test(await pg.locator(DT + ' tr:has-text("202699887766B")').innerText()), 'bằng quốc tế: lấy số và ngày từ ô "Mã số"');
+  ok(/Năm cấp lệch/.test(await pg.locator(DT + ' tr:has-text("70006")').innerText()), 'năm cấp lệch với ngày cấp thì cảnh báo');
+  const r3 = pg.locator(DT + ' tr:has-text("70003")');
+  ok(/Chủ bằng không phải TLU/.test(await r3.innerText()) && !(await r3.locator('[data-ck]').isChecked()), 'chủ bằng ngoài TLU: cảnh báo và không tick sẵn');
+  ok(/Chủ bằng không phải TLU/.test(await pg.locator(DT + ' tr:has-text("CN 2026001")').innerText()) && !(await pg.locator(DT + ' tr:has-text("CN 2026001") [data-ck]').isChecked()), 'bằng nước ngoài chỉ có ở KHCN: không tick sẵn');
+  ok(/Chủ bằng có nhiều tên người/.test(await pg.locator(DT + ' tr:has-text("8001")').innerText()), 'cột Chủ bằng nhiều tên người, Tác giả trống thì cảnh báo lệch cột');
+  ok(/Tên trùng với bằng/.test(await pg.locator(DT + ' tr:has-text("8003")').innerText()), 'tên trùng với bằng khác thì cảnh báo');
+  ok(/Có trong Excel, KHCN chưa có/.test(await pg.locator(DT + ' tr:has-text("8002")').innerText()) && /không có trong Excel/.test(await pg.locator(DT + ' tr:has-text("CN 2026001")').innerText()), 'cảnh báo bằng chỉ có ở một nguồn');
+  ok(!(await pg.locator(DT + ' tr:has-text("99999")').count()), 'trang thống kê TK_DQSC không được đọc');
+  const ft = await pg.locator(DT + ' [data-foot]').innerText();
+  ok(/9 thay đổi/.test(ft) && /thêm 8/.test(ft) && /sửa 1/.test(ft), 'chân màn: 9 thay đổi (thêm 8, sửa 1), 2 bằng ngoài TLU không tick sẵn');
+  await shot('17 Tài sản trí tuệ');
+  await xl('tt.bang', 'Tài sản trí tuệ');
+  await ttTab('sua');
+  const rs = await pg.locator(DT + ' tr:has-text("5001")').innerText();
+  ok(/Giải pháp sửa thử/.test(rs) && /Tên:/.test(rs), 'tab Sửa: bằng 5001 có cột Thay đổi (tên)');
+  await ttTab('boqua');
+  const bq = await pg.locator(DT + ' [data-blk="tt.bang"] tbody').innerText();
+  ok(await pg.locator(DT + ' [data-blk="tt.bang"] [data-ck]').count() === 0, 'tab Bỏ qua không có ô tick');
+  ok(/Đơn chưa thành bằng/.test(bq) && /Chưa có số bằng thử/.test(bq) && /Ngoài năm 2026/.test(bq) && /KHCN có thể nhập nhầm loại/.test(bq) && (bq.match(/nhập nhầm loại/g) || []).length === 2, 'tab Bỏ qua: đơn ký số, chưa có số bằng, ngoài năm, 2 bản ghi KHCN nhập nhầm loại');
+  ok(!(await pg.locator(DT + ' [data-tab="xoa"]').count()), 'không có tab Xoá');
+  await ttTab('them');
+  const wt = writes.length, hn = tstt.length;
+  await pg.click(DT + ' [data-run]'); await pg.waitForSelector('dialog[open]');
+  ok(/Thêm 8/.test(await pg.locator('dialog[open] .db').innerText()) && /sửa 1/.test(await pg.locator('dialog[open] .db').innerText()), 'hộp xác nhận nêu thêm 8, sửa 1');
+  await pg.click('dialog[open] button[value=no]'); await pg.waitForTimeout(300);
+  ok(writes.length === wt, 'bấm Chạy rồi Huỷ thì không ghi gì');
+  await pg.click(DT + ' [data-run]'); await pg.waitForSelector('dialog[open]'); await pg.click('dialog[open] button[value=ok]');
+  await pg.waitForFunction(() => /Xong/.test(document.querySelector('[data-scr="day"] [data-foot]').textContent), null, { timeout: 60000 });
+  ok(tt('TT-POST').length === 8 && tt('TT-PUT').length === 1 && tt('TT-DELETE').length === 0, 'đúng 8 POST, 1 PUT, không có DELETE (' + tt('TT-POST').length + '/' + tt('TT-PUT').length + '/' + tt('TT-DELETE').length + ')');
+  const g = x => tstt.find(h => h.mA_GIAI_PHAP === x);
+  ok(g('70002') && g('70002').ngaY_CAP === '2026-05-06T00:00:00' && g('70002').naM_DUOC_CAP_BANG === 2026 && g('70002').loaI_GIAI_PHAP === '01' && g('70002').tO_CHUC_CAP_BANG === 'Cục Sở hữu trí tuệ' && g('70002').sO_BANG === '70002', 'bằng 70002 ghi đúng ngày đã đổi lại, loại, nơi cấp, số bằng');
+  ok(g('8002') && g('8002').loaI_GIAI_PHAP === '02' && g('8002').ngaY_CAP === '2026-03-04T00:00:00' && g('8100') && g('8100').taC_GIA_SANG_CHE === 'Hà Thử', 'giải pháp hữu ích loại 02 ghi đúng; bằng chỉ có ở KHCN (8100) cũng được thêm');
+  const qtr = g('202699887766B'); ok(qtr && qtr.tO_CHUC_CAP_BANG === 'Cơ quan Sáng chế Thử' && qtr.loaI_GIAI_PHAP === '01' && qtr.ngaY_CAP === '2026-10-07T00:00:00', 'bằng quốc tế: nơi cấp quốc tế, loại 01, ngày 07/10/2026');
+  ok(!g('70003') && !g('CN 2026001'), 'hai bằng ngoài TLU chưa tick nên không được thêm');
+  const h5 = g('5001'); ok(h5 && h5.id === 't1' && h5.teN_GIAI_PHAP === 'Giải pháp sửa thử' && h5.ngaY_CAP === '2026-02-10T00:00:00' && h5.loaI_GIAI_PHAP === '01', 'bằng 5001 được sửa tại chỗ (giữ id), có tên và ngày cấp');
+  ok(tstt.length === hn + 8, 'HEMIS thêm đúng 8 bản ghi');
+  await pg.waitForTimeout(300);
+  const tabs2 = await pg.locator(DT + ' [data-blk="tt.bang"] .tabs').innerText();
+  ok(/Thêm \(2\)/.test(tabs2) && /Sửa \(0\)/.test(tabs2) && /Đã khớp \(10\)/.test(tabs2), 'sau khi chạy: Thêm 2, Sửa 0, Đã khớp 10 (' + tabs2.replace(/\s+/g, ' ') + ')');
+  await shot('17b Tài sản trí tuệ sau khi chạy');
+
   /* ---------- 4. Chỉ số TT 83 ---------- */
   console.log('9. Chỉ số TT 83');
   await pg.goto(APP + '#tt83'); await pg.waitForSelector(S('tt83') + ' .kpi');
@@ -231,7 +326,8 @@ print(json.dumps({'sheets': wb.sheetnames, 'rows': ws.max_row, 'w': ws.column_di
   ok(await pg.locator(S('tt83') + ' [data-yr]').inputValue() === '2025', 'năm 2025 vẫn được nhớ');
   await pg.selectOption(S('tt83') + ' [data-yr]', '2026'); await pg.waitForSelector(S('tt83') + ' [data-v="gp"]'); await pg.waitForTimeout(300);
   const gp = (await pg.locator(S('tt83') + ' [data-v="gp"]').innerText()).trim(), p4 = (await pg.locator(S('tt83') + ' [data-v="p4"]').innerText()).trim();
-  ok(gp === '3' && p4 === '2', 'năm 2026: P3 giải pháp hữu ích = ' + gp + ', P4 sáng chế = ' + p4 + ' (lấy từ HEMIS, đúng 3 và 2)');
+  const eGp = tstt.filter(x => x.loaI_GIAI_PHAP === '02' && +x.naM_DUOC_CAP_BANG === 2026).length, eSc = tstt.filter(x => x.loaI_GIAI_PHAP === '01' && +x.naM_DUOC_CAP_BANG === 2026).length;
+  ok(gp === String(eGp) && p4 === String(eSc), 'năm 2026: P3 giải pháp hữu ích = ' + gp + ', P4 sáng chế = ' + p4 + ' (lấy từ HEMIS, đúng ' + eGp + ' và ' + eSc + ', gồm cả các bằng vừa đẩy)');
   ok(!(await pg.locator(S('tt83') + ' [data-opt]').count()), 'không còn ô tuỳ chọn trên màn TT 83');
   await shot('15 TT83 P3 P4 từ HEMIS');
 
