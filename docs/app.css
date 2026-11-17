@@ -286,3 +286,16 @@ button.sel { cursor: pointer }
 .setrow input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--pri); flex: none; cursor: pointer }
 .setrow > span { display: flex; flex-direction: column; gap: 2px }
 .nav.bottom { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 8px }
+
+/* ---------- Đẩy lên HEMIS: chọn loại dữ liệu ---------- */
+.kinds { display: flex; gap: 4px; padding: 0 24px; background: var(--surface); border-bottom: 1px solid var(--line); flex-wrap: wrap }
+@media (max-width: 900px) { .kinds { padding: 0 16px } }
+
+/* ---------- Đẩy lên HEMIS: Đề tài ---------- */
+.fgrid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px }
+.fgrid2 .span2 { grid-column: 1 / -1 }
+.btn.warnbtn { background: var(--warn-bg); border-color: var(--warn-line); color: var(--warn) }
+.pk { width: 320px; max-height: 360px; overflow: auto }
+.pk .pkh { font-size: 12px; color: var(--muted); padding: 8px 8px 2px }
+.pk .pkb { width: 100%; justify-content: space-between }
+textarea.inp { padding: 8px 10px; min-height: 80px; resize: vertical }

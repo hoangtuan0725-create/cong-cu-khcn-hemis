@@ -46,6 +46,7 @@ export const hemis = async (method, path, data) => {
   const r = await run({ type: 'hemis', method, path, data: data == null ? null : data });
   if (r.status === 401) throw new BridgeError('Hết phiên đăng nhập HEMIS. Mở tab hemis-cms.moet.gov.vn, đăng nhập (hoặc bấm F5) rồi thử lại.', 'login-hemis');
   let j = null; try { j = JSON.parse(r.text); } catch (e) {}
+  if (!j && r.status < 300 && !String(r.text || '').trim()) return { success: true };
   if (r.status >= 400 || !j || j.success === false) throw new BridgeError((j && (j.message || j.error)) || ('HEMIS báo lỗi ' + r.status));
   return j;
 };

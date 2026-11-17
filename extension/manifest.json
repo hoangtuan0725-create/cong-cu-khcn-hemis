@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Công cụ KHCN TLU → HEMIS",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Cầu nối cho trang Công cụ KHCN TLU → HEMIS: lấy dữ liệu KHCN và HEMIS bằng phiên đăng nhập sẵn có của người dùng.",
   "action": {
     "default_title": "Mở công cụ KHCN TLU → HEMIS",

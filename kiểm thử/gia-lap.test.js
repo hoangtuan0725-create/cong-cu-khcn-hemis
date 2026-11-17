@@ -23,8 +23,20 @@ const page = b => '<html><body>' + b + '</body></html>';
 const tr = cells => '<tr>' + cells.map(c => '<td>' + String(c).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</td>').join('') + '</tr>';
 const toISO = s => { const m = String(s).match(/^(\d+)\/(\d+)\/(\d{4})$/); return m ? m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0') : ''; };
 const inRange = (a, u) => { const d = toISO(a.d), f = u.searchParams.get('from'), t = u.searchParams.get('target'); return !d || (d >= f && d <= t); };
+/* de tai cac cap: j=0 dang lam (dinh nam 2026), j=1 da xong 2025 (khong dinh), j=2 bat dau 2026, j=3 chua phe duyet; them 1 de tai nghiem thu 2026 */
+const dtPass = {}; const dts = []; const SHUF = a => a.map(x => [Math.random(), x]).sort((x, y) => x[0] - y[0]).map(x => x[1]);
+[2, 3, 35, 36, 37, 38, 40, 41, 42, 51, 52, 68, 69, 1, 39].forEach(cap => { for (let j = 0; j < 4; j++) {
+  const n = dts.length, bd = ['2025-01-01', '2024-01-01', '2026-03-01', '2026-02-01'][j], kt = ['2027-06-30', '2025-12-31', '2028-03-01', '2027-02-01'][j];
+  dts.push({ id: 9000 + n, cap, ma: 'DT' + cap + '-' + j, ten: 'Đề tài cấp mã ' + cap + ' số ' + j + (cap === 42 && j === 0 ? ' tại tỉnh Lâm Đồng' : cap === 42 && j === 2 ? ' xâm nhập mặn ven biển' : ' về công trình ' + n), cn: 'TS. Nguyễn Văn ' + j, ap: j !== 3, bd, kt, nt: '', kp: 1000000 * (n % 7 + 1) });
+} });
+dts.push({ id: 9900, cap: 2, ma: 'DT2-NT', ten: 'Đề tài đã nghiệm thu năm 2026 về đê', cn: 'TS. Trần Văn B', ap: true, bd: '2023-01-01', kt: '2025-06-30', nt: '2026-02-05', kp: 5000000 });
+const DTCAPS = [2, 3, 35, 36, 37, 38, 40, 41, 42, 51, 52, 68, 69];
+const dtIn = (d, y) => d.ap && DTCAPS.includes(d.cap) && (d.nt ? d.nt.slice(0, 4) === y : d.bd <= y + '-12-31' && d.kt >= y + '-01-01');
+const vnD = iso => iso.split('-').reverse().join('/');
 const khcn = (url, form) => {
   const u = new URL(url), p = u.pathname;
+  if (p === '/Home/ToanBoDeTai') { const cap = +u.searchParams.get('cap'), pg = +u.searchParams.get('page'); if (pg === 1) dtPass[cap] = (dtPass[cap] || 0) + 1; const first = dtPass[cap] === 1, B0 = dts.filter(d => d.cap === cap), L = dtPass[cap] % 2 === 0 ? B0.slice().reverse() : B0; /* lượt 1: từ trang 2 trở đi lệch một dòng (đề tài ở ranh giới bị sót), lượt sau đầy đủ */ const off = first && pg > 1 ? 1 : 0; return '<table><tr><th>Mã</th></tr>' + L.slice((pg - 1) * 3 + off, pg * 3 + off).map(d => '<tr ondblclick="ShowDeTails(\'' + d.id + '\')"><td>' + d.ma + '</td><td>' + d.ten + '</td><td>' + (d.ap ? 'Đã phê duyệt' : 'Chưa phê duyệt') + '</td><td>' + vnD(d.bd) + '</td><td>' + vnD(d.kt) + '</td></tr>').join('') + '</table>'; }
+  if (p === '/Home/DetailsDeTai') { const d = dts.find(x => x.id === +form.id); return '<dl><dt>Cấp</dt><dd>Cấp ' + d.cap + '</dd><dt>Tên đề tài</dt><dd>' + d.ten + '</dd><dt>Tổng kinh phí</dt><dd>' + d.kp.toLocaleString('vi-VN') + ' đ</dd><dt>Thời gian bắt đầu/kết thúc</dt><dd>' + vnD(d.bd) + ' - ' + vnD(d.kt) + '</dd><dt>Trạng thái</dt><dd>' + (d.nt ? 'Đã nghiệm thu: ' + vnD(d.nt) : 'Chưa nghiệm thu') + '</dd><dt>Mã số</dt><dd>' + d.ma + '</dd><dt>Đơn vị chủ trì</dt><dd>Khoa Công trình</dd><dt>Chủ nhiệm</dt><dd>' + d.cn + '</dd></dl>'; }
   if (p === '/TrichXuatCongBo') return '<table><tr><th>h</th></tr>' + arts.filter(a => inRange(a, u)).map(a => tr(['1', a.a.map(x => x.n + '<' + x.u + '>').join(', ') + (a.ext ? ', Ext Author' : ''), '', '', '', a.t, a.j, a.l, a.q, '1,2', '1', a.d, a.gio, a.tien, '1', '2', a.pg])).join('') + '</table>';
   if (p === '/CongBo/XuatDuLieu') { const np = u.searchParams.get('nopoint'); const A = arts.filter(a => inRange(a, u)); const L = np === 'null' ? A : np === '1' ? A.filter(a => a.id % 3) : np === '2' ? A.filter(a => a.id % 3 === 0 && a.id % 2) : np === 'true' ? A.filter(a => a.id % 11 === 0) : []; return '<table><tr><th>h</th></tr>' + L.map(a => '<tr ondblclick="ShowDeTails(\'' + a.id + '\')"><td>1</td><td>' + a.t + '</td></tr>').join('') + '</table>'; }
   const bms = [...new Set(users.map(x => x.bm + '|' + x.k))];
@@ -40,9 +52,20 @@ arts.filter(a => a.id % 4 === 0 && a.d).forEach((a, i) => hem.push({ id: 'h' + i
 hem.push(Object.assign({}, hem[0], { id: 'hdup', mA_BAI_BAO: 'BBKH2025-999' }));
 /* tai san tri tue gia: 01 sang che, 02 giai phap huu ich */
 const tstt = [['01', 2026], ['01', 2026], ['02', 2026], ['02', 2026], ['02', 2026], ['02', 2025]].map(([l, y], i) => ({ id: 't' + i, mA_GIAI_PHAP: String(5000 + i), loaI_GIAI_PHAP: l, naM_DUOC_CAP_BANG: y }));
+/* nhiem vu KHCN gia tren HEMIS: 1 khop, 1 lech kinh phi (sua), 1 ngoai pham vi (xoa), 1 cap co so (khong bao gio de xuat xoa) */
+const nvOf = (d, o) => Object.assign({ id: 'n' + d.id, doN_VI_ID: '452d0027-e4c1-44d1-9efb-befb8db8840d', mA_NHIEM_VU: d.ma, teN_NHIEM_VU: d.ten, phaN_CAP_NHIEM_VU: '02', phaN_LOAI_NHIEM_VU: '02', cO_QUAN_CHU_QUAN: '19', nguoI_CHU_TRI: d.cn, tG_BAT_DAU: d.bd + 'T00:00:00', tG_KET_THUC: d.kt + 'T00:00:00', tonG_KINH_PHI: d.kp, nguoN_KINH_PHI: '01', tinH_TRANG_NV: '04' }, o);
+const nv = [nvOf(dts.find(d => d.ma === 'DT2-0')), nvOf(dts.find(d => d.ma === 'DT3-0'), { cO_QUAN_CHU_QUAN: '11', tonG_KINH_PHI: 1 }),
+  { id: 'nOLD1', mA_NHIEM_VU: 'OLD-1', teN_NHIEM_VU: 'Đề tài cũ ngoài phạm vi', phaN_CAP_NHIEM_VU: '02', cO_QUAN_CHU_QUAN: '11', tG_BAT_DAU: '2020-01-01T00:00:00', nguoI_CHU_TRI: 'TS. Cũ', tonG_KINH_PHI: 5 }, { id: 'nCS1', mA_NHIEM_VU: 'CS-OLD-1', teN_NHIEM_VU: 'Đề tài cơ sở từ QĐ cũ', phaN_CAP_NHIEM_VU: '04', cO_QUAN_CHU_QUAN: '11', tG_BAT_DAU: '2025-01-01T00:00:00' }];
 const writes = [];
 const hemis = (method, p, data) => {
-  if (p.endsWith('/GetData')) { const src = p.includes('KHCN_GIAI_PHAP_SANG_CHE_DON_VI') ? tstt : hem, pg = data.pageInfo.page, ps = data.pageInfo.pageSize; return { status: 200, text: JSON.stringify({ success: true, data: src.slice((pg - 1) * ps, pg * ps) }) }; }
+  if (p.endsWith('/GetData')) { const src = p.includes('KHCN_GIAI_PHAP_SANG_CHE_DON_VI') ? tstt : p.includes('KHCN_NHIEM_VU_KHCN') ? nv : hem, pg = data.pageInfo.page, ps = data.pageInfo.pageSize; return { status: 200, text: JSON.stringify({ success: true, data: src.slice((pg - 1) * ps, pg * ps) }) }; }
+  if (p.includes('KHCN_NHIEM_VU_KHCN')) {
+    const m = p.match(/\/DetailWithPermission\/([^?]+)/); if (m) return { status: 200, text: JSON.stringify({ success: true, data: Object.assign({}, nv.find(x => x.id === m[1])) }) };
+    if (method === 'POST') { writes.push(['NV-POST', data.mA_NHIEM_VU]); nv.push(data); return { status: 200, text: JSON.stringify({ success: true }) }; }
+    const id = p.split('/').pop(), i = nv.findIndex(x => x.id === id);
+    if (method === 'PUT') { writes.push(['NV-PUT', id]); nv[i] = data; return { status: 200, text: JSON.stringify({ success: true }) }; }
+    if (method === 'DELETE') { writes.push(['NV-DELETE', id]); if (i >= 0) nv.splice(i, 1); return { status: 200, text: JSON.stringify({ success: true }) }; }
+  }
   const m = p.match(/\/DetailWithPermission\/([^?]+)/); if (m) return { status: 200, text: JSON.stringify({ success: true, data: Object.assign({}, hem.find(x => x.id === m[1])) }) };
   if (method === 'POST') { writes.push(['POST', data.mA_BAI_BAO]); hem.push(data); return { status: 200, text: JSON.stringify({ success: true }) }; }
   if (method === 'PUT') { const id = p.split('/').pop(), i = hem.findIndex(x => x.id === id); writes.push(['PUT', id]); hem[i] = data; return { status: 200, text: JSON.stringify({ success: true }) }; }
@@ -61,7 +84,7 @@ const hemis = (method, p, data) => {
   });
   /* gia lap tien ich: tra loi postMessage cua trang */
   await ctx.exposeBinding('__ext', (src, msg) => {
-    if (msg.type === 'ping') return { ok: true, data: { ver: '2.0.0', tabs: { khcn: true, hemis: true } } };
+    if (msg.type === 'ping') return { ok: true, data: { ver: '2.1.0', tabs: { khcn: true, hemis: true } } };
     if (msg.type === 'khcn') return { ok: true, data: { status: 200, text: page(khcn('https://khcn.tlu.edu.vn' + msg.path, msg.form || {})) } };
     if (msg.type === 'hemis') return { ok: true, data: hemis(msg.method, msg.path, msg.data) };
     if (msg.type === 'openEdit') { writes.push(['openEdit', msg.id, msg.name]); return { ok: true, data: true }; }
@@ -76,6 +99,9 @@ const hemis = (method, p, data) => {
   });
   const pg = await ctx.newPage(); const errs = [];
   pg.on('pageerror', e => errs.push(e.message)); pg.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
+  /* tai ve: ghi nhan thu tu so voi lenh ghi HEMIS; file sao luu de tai nhan ra qua noi dung (Playwright bao ten blob la "download") */
+  let nDl = 0;
+  pg.on('download', async d => { const e = ['DOWNLOAD', d.suggestedFilename()]; writes.push(e); const f = path.join(OUT, 'tải xuống ' + (++nDl)); await d.saveAs(f); if (fs.readFileSync(f).slice(0, 60).toString().includes('KHCN_NHIEM_VU_KHCN')) { e[1] = 'Sao lưu đề tài trước khi xoá (kiểm thử).json'; fs.copyFileSync(f, path.join(OUT, 'Sao lưu đề tài kiểm thử.json')); } });
   const shot = async n => { await pg.waitForTimeout(300); await pg.screenshot({ path: path.join(OUT, n + '.png') }); };
   const idle = () => pg.waitForFunction(() => [...document.querySelectorAll('[data-busy]')].every(b => b.hidden), null, { timeout: 120000 });
   const ok = (c, m) => { if (!c) { errs.push('SAI: ' + m); console.log('  SAI:', m); } else console.log('  đúng:', m); };
@@ -115,7 +141,7 @@ const hemis = (method, p, data) => {
   await pg.click('[data-unf="*"]');
 
   /* cac buoc cho man HEMIS / Danh sach them o duoi */
-  if (fs.existsSync(path.join(__dirname, 'gia-lap-hemis.js'))) await require('./gia-lap-hemis.js')({ pg, APP, shot, idle, ok, writes, hem, errs });
+  if (fs.existsSync(path.join(__dirname, 'gia-lap-hemis.js'))) await require('./gia-lap-hemis.js')({ pg, APP, shot, idle, ok, writes, hem, errs, nv, dts, dtIn, OUT });
 
   console.log('LỖI TRANG:', errs.length ? errs : 'không có');
   console.log('Ảnh chụp ở:', OUT);
