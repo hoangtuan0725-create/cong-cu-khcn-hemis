@@ -51,6 +51,38 @@ async function hemisFetch(path, method, data) {
   const r = await fetch(path, { method, headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json', PortalAlias: location.origin }, body: data == null ? undefined : JSON.stringify(data) });
   return { status: r.status, text: await r.text() };
 }
+/* Lenh van nang: moi yeu cau toi KHCN/HEMIS deu di qua day, nen sau nay them chuc nang khong phai sua tien ich.
+   o: { method, headers, form (doi tuong -> form), json (doi tuong -> JSON), body (chuoi), auth: 'hemis' (gan token HEMIS), binary (tra base64) } */
+async function anyFetch(path, o) {
+  const h = Object.assign({}, o.headers || {});
+  let body = o.body == null ? undefined : o.body;
+  if (o.form) body = new URLSearchParams(o.form);
+  if (o.json !== undefined && o.json !== null) { body = JSON.stringify(o.json); h['Content-Type'] = 'application/json'; }
+  if (o.auth === 'hemis') {
+    const tok = localStorage.getItem('access_token');
+    if (!tok) return { status: 401, text: '' };
+    h.Authorization = 'Bearer ' + tok; h.PortalAlias = location.origin;
+  }
+  const r = await fetch(path, { method: o.method || 'GET', headers: h, body, credentials: 'include', cache: 'no-store' });
+  const out = { status: r.status, type: r.headers.get('content-type') || '' };
+  if (o.binary) { const b = new Uint8Array(await r.arrayBuffer()); let s = ''; for (let i = 0; i < b.length; i += 32768) s += String.fromCharCode.apply(null, b.subarray(i, i + 32768)); out.base64 = btoa(s); }
+  else out.text = await r.text();
+  return out;
+}
+/* Dien san mot o trong trang vua mo (vi du ten tap chi chuan o trang sua bai KHCN) */
+function fillField(sel, value, noteText) {
+  let n = 0;
+  const t = setInterval(() => {
+    const inp = document.querySelector(sel);
+    if (inp) {
+      clearInterval(t);
+      inp.value = value; inp.dispatchEvent(new Event('input', { bubbles: true })); inp.dispatchEvent(new Event('change', { bubbles: true }));
+      inp.style.background = '#FEF3C7'; inp.style.outline = '3px solid #B45309'; inp.scrollIntoView({ block: 'center' });
+      if (noteText) { const note = document.createElement('div'); note.textContent = noteText; note.style.cssText = 'color:#B45309;font-weight:bold;margin:4px 0'; inp.parentNode.insertBefore(note, inp.nextSibling); }
+    }
+    if (++n > 100) clearInterval(t);
+  }, 200);
+}
 function fillJournal(name) {
   let n = 0;
   const t = setInterval(() => {
@@ -75,7 +107,7 @@ async function handle(msg) {
     case 'ping': {
       const st = {};
       for (const s of Object.keys(SITES)) st[s] = !!(await siteTab(s, false));
-      return { ver: chrome.runtime.getManifest().version, tabs: st };
+      return { ver: chrome.runtime.getManifest().version, tabs: st, cmds: ['khcn', 'hemis', 'fetch', 'open', 'openEdit', 'openSite'] };
     }
     case 'khcn':
       if (!okPath(msg.path)) throw new Error('Đường dẫn không hợp lệ');
@@ -88,6 +120,16 @@ async function handle(msg) {
       if (!/^\d+$/.test(String(msg.id))) throw new Error('Mã bài không hợp lệ');
       const tab = await chrome.tabs.create({ url: SITES.khcn.origin + '/CongBo/EditCongBo/' + msg.id + '?toantruong=true' });
       if (msg.name) { await waitLoaded(tab.id); await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: fillJournal, args: [String(msg.name)] }); }
+      return true;
+    }
+    case 'fetch':
+      if (!SITES[msg.site] || !okPath(msg.path)) throw new Error('Đường dẫn không hợp lệ');
+      if (!['GET', 'POST', 'PUT', 'DELETE', 'PATCH'].includes(msg.method || 'GET')) throw new Error('Lệnh không hợp lệ');
+      return runIn(msg.site, anyFetch, [msg.path, msg.opts || { method: msg.method || 'GET' }]);
+    case 'open': {
+      if (!SITES[msg.site] || !okPath(msg.path)) throw new Error('Đường dẫn không hợp lệ');
+      const tab = await chrome.tabs.create({ url: SITES[msg.site].origin + msg.path, active: msg.active !== false });
+      if (msg.fill && msg.fill.selector) { await waitLoaded(tab.id); await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: fillField, args: [String(msg.fill.selector), String(msg.fill.value || ''), String(msg.fill.note || '')] }); }
       return true;
     }
     case 'openSite':

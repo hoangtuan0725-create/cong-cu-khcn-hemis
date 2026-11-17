@@ -68,9 +68,15 @@ const compare = () => {
 const fixOn = f => !fixed(f) && (ticks.has(f.id) ? ticks.get(f.id) : f.clsDiff || f.jDiff);
 const fixed = f => !!(done.get(f.id) && done.get(f.id).ok);
 
-const all = () => { const L = build(), C = compare(), fx = new Set(C.fixes.map(f => f.id)); return { L, C, khop: L.filter(x => (x.st === 'have' && !fx.has(x.hid)) || x.st === 'ok') }; };
-const TABS = { them: 'Thêm', sua: 'Sửa', chua: 'Chưa duyệt', trung: 'Trùng trên HEMIS', boqua: 'Bỏ qua', khop: 'Đã khớp' };
-const pick = (A, t) => t === 'them' ? A.L.filter(x => canAdd(x.st)) : t === 'sua' ? A.C.fixes : t === 'chua' ? A.L.filter(x => x.st === 'un') : t === 'trung' ? A.C.flags : t === 'boqua' ? A.L.filter(x => x.st === 'dup' || x.st === 'bad') : A.khop;
+/* bai tren HEMIS (cung khoang nam da quet) khong khop bai nao tren KHCN: bai thu, bai la, bai nhap tay ngoai KHCN */
+const lone = () => {
+  const S = D.scan, H = D.hemis; if (!S || !H) return [];
+  const keys = new Set(S.recs.map(r => norm(r.t))), y0 = +S.f.slice(0, 4), y1 = +S.t.slice(0, 4);
+  return H.list.filter(x => +x.naM_CONG_BO >= y0 && +x.naM_CONG_BO <= y1 && !keys.has(norm(x.teN_BAI_BAO)));
+};
+const all = () => { const L = build(), C = compare(), fx = new Set(C.fixes.map(f => f.id)); return { L, C, lone: lone(), khop: L.filter(x => (x.st === 'have' && !fx.has(x.hid)) || x.st === 'ok') }; };
+const TABS = { them: 'Thêm', sua: 'Sửa', chua: 'Chưa duyệt', trung: 'Trùng trên HEMIS', lone: 'Chỉ có trên HEMIS', boqua: 'Bỏ qua', khop: 'Đã khớp' };
+const pick = (A, t) => t === 'them' ? A.L.filter(x => canAdd(x.st)) : t === 'sua' ? A.C.fixes : t === 'chua' ? A.L.filter(x => x.st === 'un') : t === 'trung' ? A.C.flags : t === 'lone' ? A.lone : t === 'boqua' ? A.L.filter(x => x.st === 'dup' || x.st === 'bad') : A.khop;
 const nSel = A => ({ a: A.L.filter(x => canAdd(x.st) && !off.has(x.k)).length, s: A.C.fixes.filter(fixOn).length });
 
 /* ---- Ve bang ---- */
@@ -95,6 +101,9 @@ const table = (A, t) => {
     '<div class="more">Bài chỉ lệch năm không tick sẵn (thường do đăng online năm trước, in năm sau). Chỉ sửa, không xoá bài nào.</div>';
   if (t === 'trung') return '<div class="tw"><table class="tbl"><thead><tr><th>Mã HEMIS</th><th class="wt">Bài báo</th><th>Vấn đề</th></tr></thead><tbody>' +
     (L.length ? L.map(f => '<tr><td class="nowrap">' + esc(f.code) + '</td><td class="t"><b>' + esc(f.t) + '</b></td><td>' + esc(f.why) + '</td></tr>').join('') : none(3)) + '</tbody></table></div>';
+  if (t === 'lone') return '<div class="tw"><table class="tbl"><thead><tr><th>Mã HEMIS</th><th class="wt">Bài báo</th><th>Năm</th></tr></thead><tbody>' +
+    (L.length ? L.slice(0, MAXR).map(x => '<tr><td class="nowrap">' + esc(x.mA_BAI_BAO) + '</td><td class="t"><b>' + esc(x.teN_BAI_BAO) + '</b><div class="muted">' + esc(x.teN_TAP_CHI || '') + '</div></td><td>' + esc(x.naM_CONG_BO) + '</td></tr>').join('') : none(3)) + '</tbody></table></div>' + more +
+    '<div class="more">Bài trên HEMIS (cùng khoảng năm đã quét) không khớp tên bài nào trên KHCN: có thể là bài thử, bài nhập tay hoặc tên đã bị sửa. Công cụ không tự xoá; kiểm tra và xử lý trên HEMIS.</div>';
   const tick = t === 'them';
   return '<div class="tw"><table class="tbl"><thead><tr>' + (tick ? '<th class="ck"><input type="checkbox" data-all aria-label="Chọn tất cả"' + (L.some(x => off.has(x.k)) ? '' : ' checked') + (going() ? ' disabled' : '') + '></th>' : '') + '<th class="wt">Bài báo</th><th>Loại</th><th>Q</th><th>Ngày</th><th>Tình trạng KHCN</th><th>Kết quả</th></tr></thead><tbody>' +
     (L.length ? L.slice(0, MAXR).map(x => '<tr data-k="' + esc(x.k) + '">' + (tick ? ck(x.k, !off.has(x.k), x.st === 'ok') : '') + '<td class="t"><b>' + esc(x.r.t) + '</b><div class="muted">' + esc(x.r.j || '(chưa có tên tạp chí)') + '</div></td><td title="' + esc(x.r.l) + '">' + esc(shortType(x.r.l)) + '</td><td>' + (QM[x.r.q] ? esc(x.r.q) : '<span class="muted">—</span>') + '</td><td class="nowrap">' + esc(x.r.d ? vnDate(x.r.d) : '—') + '</td><td>' + khcnPill(x.r) + '</td><td data-res>' + res(x) + '</td></tr>').join('') : none(tick ? 7 : 6)) + '</tbody></table></div>' + more;
@@ -107,6 +116,7 @@ const xlsx = () => {
   let rows;
   if (tab === 'sua') rows = [['Mã HEMIS', 'Tên bài báo', 'Loại (KHCN)', 'Đang ghi trên HEMIS', 'Sẽ sửa thành', 'Kết quả']].concat(L.map(f => { const d = done.get(f.id); return [f.x.mA_BAI_BAO, f.x.teN_BAI_BAO, f.r.l, f.from.join(' | '), f.to.join(' | '), d ? (d.ok ? 'Đã sửa' : 'Lỗi: ' + d.err) : '']; }));
   else if (tab === 'trung') rows = [['Mã HEMIS', 'Tên bài báo', 'Vấn đề']].concat(L.map(f => [f.code, f.t, f.why]));
+  else if (tab === 'lone') rows = [['Mã HEMIS', 'Tên bài báo', 'Tạp chí', 'Năm']].concat(L.map(x => [x.mA_BAI_BAO, x.teN_BAI_BAO, x.teN_TAP_CHI, +x.naM_CONG_BO || '']));
   else rows = [['Mã HEMIS', 'Tên bài báo', 'Tạp chí', 'Loại', 'Q', 'Ngày công bố', 'Tình trạng KHCN', 'Tình trạng', 'Cảnh báo']].concat(L.map(x => [x.code, x.r.t, x.r.j, x.r.l, QM[x.r.q] ? x.r.q : '', x.r.dRaw, x.r.st, x.err ? 'Lỗi: ' + x.err : TXT[x.st], x.warn.join('; ')]));
   downloadXlsx('Đẩy HEMIS bài báo ' + name, { name, head: 1, freezeCols: 1, rows });
 };
@@ -181,7 +191,7 @@ export default {
     if (!D.scan) { body.innerHTML = '<div class="card">' + empty('scan', 'Chưa có dữ liệu quét', 'Hãy quét năm báo cáo trên KHCN và sửa các bài thiếu thông tin, rồi quay lại đây.', '<button class="btn pri" data-goto="quet">' + icon('scan') + 'Sang Quét &amp; kiểm tra</button>') + '</div>'; return; }
     if (!D.hemis) { body.innerHTML = '<div class="card">' + empty('refresh', D.busy.hemis ? 'Đang lấy danh sách bài trên HEMIS…' : 'Chưa có dữ liệu HEMIS', 'Anh/chị cần đăng nhập HEMIS trên Chrome.', D.busy.hemis ? '' : '<button class="btn pri" data-bb-reload>' + icon('refresh') + 'Lấy từ HEMIS</button>') + '</div>'; return; }
     const A = all(), c = t => pick(A, t).length;
-    const list = [['them', 'Thêm'], ['sua', 'Sửa']].concat(setting('chiDuyet') ? [['chua', 'Chưa duyệt']] : [], c('trung') ? [['trung', 'Trùng trên HEMIS']] : [], c('boqua') ? [['boqua', 'Bỏ qua']] : [], [['khop', 'Đã khớp']]);
+    const list = [['them', 'Thêm'], ['sua', 'Sửa']].concat(setting('chiDuyet') ? [['chua', 'Chưa duyệt']] : [], c('trung') ? [['trung', 'Trùng trên HEMIS']] : [], c('lone') ? [['lone', 'Chỉ có trên HEMIS']] : [], c('boqua') ? [['boqua', 'Bỏ qua']] : [], [['khop', 'Đã khớp']]);
     if (!list.some(l => l[0] === tab)) tab = 'them';
     body.innerHTML = blk('bb.bang', 'Bài báo', table(A, tab), { headHtml: tabsHtml(list.map(([k, t]) => [k, t + ' (' + c(k) + ')']), tab) });
     const xb = body.querySelector('[data-close="bb.bang"]'); if (xb && going()) xb.disabled = true;

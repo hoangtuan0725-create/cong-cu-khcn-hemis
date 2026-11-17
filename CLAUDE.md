@@ -150,7 +150,8 @@ KHCN (bổ sung):
 ## 6. Cập nhật công cụ
 
 - Sửa trang: sửa `docs/`, chạy kiểm thử, gộp vào `main`. GitHub Pages tự đăng lại sau 1–2 phút; người dùng chỉ cần F5. Nhớ tăng `APP_VER` trong `docs/js/core.js`.
-- Sửa tiện ích (`extension/`): tăng `version` trong `manifest.json`, chạy `python3 "đóng gói tiện ích.py"`, rồi người dùng tải zip mới và cài lại (Load unpacked) hoặc bấm Reload trong `chrome://extensions`. Hạn chế sửa tiện ích; logic để ở trang.
+- **Không sửa tiện ích nếu tránh được** (Tuấn: mỗi lần cập nhật tiện ích là mọi người phải làm lại rất cực). Từ bản 2.1 tiện ích là cầu nối vạn năng: lệnh `fetch` (site khcn|hemis, path cùng site, opts {method, form, json, body, headers, auth:'hemis', binary}) và `open` (mở trang cùng site, điền sẵn một ô). Chức năng mới viết ở trang, dùng các lệnh này.
+- Nếu bắt buộc phải sửa tiện ích: tăng `version` trong `manifest.json`, tăng `MIN_EXT` trong `docs/js/huongdan.js` (trang tự hiện hướng dẫn cập nhật cho máy dùng bản cũ), chạy `python3 "đóng gói tiện ích.py"`. Muốn tiện ích tự cập nhật hoàn toàn thì phải đưa lên Chrome Web Store (5 USD; Tuấn chưa chọn).
 - Kho để Public: không đưa dữ liệu bài báo, số liệu nội bộ, mật khẩu, token vào kho.
 
 ## 7. Còn chưa rõ
