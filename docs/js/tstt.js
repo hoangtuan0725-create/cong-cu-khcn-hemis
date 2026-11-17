@@ -1,7 +1,7 @@
 // Đẩy lên HEMIS · Tài sản trí tuệ (KHCN_GIAI_PHAP_SANG_CHE_DON_VI: sáng chế, giải pháp hữu ích).
-// Hai nguồn ghép theo số bằng (chuẩn hoá: chỉ giữ chữ và số), Excel ưu tiên cho từng trường:
-//  A. Excel SHTT của phòng (nhập từ máy, lưu IndexedDB 'tt.excel'): sheet Bang_DQSC (sáng chế), Bang_GPHI, Bang_sangche_QT (bằng quốc tế).
-//  B. KHCN, Hoạt động khác: loại 4 (sáng chế), loại 6 (giải pháp hữu ích).
+// Hai nguồn ghép theo số bằng (chuẩn hoá: chỉ giữ chữ và số); mọi trường gửi lên HEMIS lấy từ Excel:
+//  A. (NGUỒN DUY NHẤT để thêm/sửa trên HEMIS) Excel SHTT của phòng (nhập từ máy, lưu IndexedDB 'tt.excel'): sheet Bang_DQSC (sáng chế), Bang_GPHI, Bang_sangche_QT (bằng quốc tế).
+//  B. (chỉ ĐỐI CHIẾU, không bao giờ dựng bản ghi HEMIS; bằng chỉ có trên KHCN vào tab Bỏ qua) KHCN, Hoạt động khác: loại 4 (sáng chế), loại 6 (giải pháp hữu ích).
 // Chỉ thêm và sửa; công cụ KHÔNG BAO GIỜ xoá tài sản trí tuệ trên HEMIS.
 //
 // GIẢ ĐỊNH VỀ HTML KHCN (chưa thử với dữ liệu thật):
@@ -45,7 +45,6 @@ const hem = (m, p, d) => retry(() => B.hemis(m, p, d));
 const busyT = txt => { if (txt) D.busy.detai = txt; else delete D.busy.detai; emit('busy', 'detai'); };   // dùng chung dòng "đang làm" với Đề tài
 const validSo = s => { const t = txt(s); return /\d/.test(t) && norm(t).length >= 3 && !/đơn|ký số|chưa (có|cấp)/i.test(t); };
 const isTlu = s => /dhtl|thuyloi|truongdaihocthuyloi/.test(norm(s)) || /\btlu\b/i.test(String(s));
-const NOT_PATENT = /(^|[^\p{L}])(bản quyền|quyền tác giả|tác phẩm|chương trình máy tính|giáo trình|sách|chuyên khảo|nhãn hiệu)(?![\p{L}])/iu;
 
 /* ================= Nguồn A: Excel SHTT ================= */
 /* Ô ngày kiểu Excel có ngày <= 12 đã bị đảo ngày/tháng: ngày thật = tháng ghi trong ô, tháng thật = ngày. Ô chữ dd/mm/yyyy đọc đúng như chữ. */
@@ -76,7 +75,7 @@ function parseSheets(sheets) {
       const warn = [], nd = qt ? { iso: isoAll(ngayQt)[0] || '' } : dateOf(get(C.ngay)), dd = dateOf(get(C.ngayDon)), nam = +(str(C.nam).match(/\d{4}/) || [])[0] || 0;
       if (nd.swapped || dd.swapped) { warn.push('Đã đổi lại ngày/tháng, kiểm tra'); nSwap++; }
       if (nd.iso && nam && +nd.iso.slice(0, 4) !== nam) warn.push('Năm cấp lệch: ngày cấp ' + nd.iso.slice(0, 4) + ', cột Năm cấp ' + nam);
-      rows.push({ src: 'Excel', kind, qt, loai: kind === 'gp' ? '02' : '01', so, don: txt(str(C.don)), ngayDon: dd.iso, qd: txt(str(C.qd)), ngay: nd.iso, nam: nam || (nd.iso ? +nd.iso.slice(0, 4) : 0), ten,
+      rows.push({ src: 'Excel', kind, qt, loai: kind === 'gp' ? '02' : '01', so, don: txt(str(C.don)), ngayDon: dd.iso, qd: txt(str(C.qd)), ngay: nd.iso, nam: nd.iso ? +nd.iso.slice(0, 4) : nam, ten,
         chu: lines(str(C.chu)).join('\n'), dia: txt(str(C.dia)), tg: lines(str(C.tg)).join(', '), noiCap: txt(str(C.noiCap)), warn, sheet: sh.name, row: r + 1 });
     }
     list.push({ name: sh.name, kind, n: rows.length - n0 });
@@ -139,7 +138,7 @@ async function quet() {
 
 /* ================= Ghép dữ liệu ================= */
 function merged() {
-  const ex = excel ? excel.rows : [], kh = D.tstt ? D.tstt.rows : [], both = !!(excel && D.tstt), groups = new Map(), list = [];
+  const ex = excel ? excel.rows : [], kh = D.tstt ? D.tstt.rows : [], groups = new Map(), list = [];
   [...ex, ...kh].forEach(r => {
     const k = validSo(r.so) ? norm(r.so) : '';
     if (!k) { list.push({ k: '', parts: [r] }); return; }
@@ -148,18 +147,15 @@ function merged() {
   });
   const items = list.map((x, i) => {
     const it = { k: x.k || 'x' + i, key: x.k, parts: x.parts, warn: [], skip: '', noTick: false };
-    FIELDS.forEach(f => { const p = x.parts.find(q => q[f]); it[f] = p ? p[f] : (f === 'nam' ? 0 : ''); });
-    it.qt = x.parts.some(p => p.qt); it.src = [...new Set(x.parts.map(p => p.src))].join(' + ');
+    const e = x.parts.find(p => p.src === 'Excel'), h = x.parts.find(p => p.src === 'KHCN'), base = e || h;
+    /* mọi trường lấy từ Excel; KHCN chỉ để đối chiếu (bản ghi chỉ có trên KHCN chỉ hiện để xem, không bao giờ thành bản ghi HEMIS) */
+    FIELDS.forEach(f => { it[f] = base[f] || (f === 'nam' ? 0 : ''); });
+    it.qt = !!base.qt; it.src = e ? (h ? 'Excel + KHCN' : 'Excel') : 'KHCN';
     if (!it.noiCap && !it.qt && /^\d+$/.test(norm(it.so))) it.noiCap = CUC;
-    x.parts.forEach(p => p.warn.forEach(w => { if (!it.warn.includes(w)) it.warn.push(w); }));
-    const e = x.parts.find(p => p.src === 'Excel'), h = x.parts.find(p => p.src === 'KHCN');
-    if (e && h && e.ngay && h.ngay && e.ngay !== h.ngay) it.warn.push('Ngày cấp khác nhau: Excel ' + vnDate(e.ngay) + ', KHCN ' + vnDate(h.ngay));
-    if (both && x.key && !(e && h)) it.warn.push(e ? 'Có trong Excel, KHCN chưa có' : 'Có ở KHCN, không có trong Excel');
-    if (!it.skip) {
-      const dh = /đơn|ký số/i.test(it.so);
-      if (!x.key) it.skip = dh ? 'Đơn chưa thành bằng (chưa có số bằng)' : h && !e ? 'Chưa có số bằng. KHCN có thể nhập nhầm loại' : 'Chưa có số bằng';
-      else if (!e && NOT_PATENT.test(it.ten + ' ' + it.so)) it.skip = 'Tên cho thấy không phải bằng. KHCN có thể nhập nhầm loại';
-    }
+    if (e) e.warn.forEach(w => it.warn.push(w));
+    if (!e) it.skip = 'Chỉ có trên KHCN, chưa có trong Excel SHTT (nếu đúng là bằng thì bổ sung vào Excel rồi nhập lại)';
+    else if (!x.key) it.skip = /đơn|ký số/i.test(it.so) ? 'Đơn chưa thành bằng (chưa có số bằng)' : 'Chưa có số bằng';
+    else if (D.tstt && !h) it.warn.push('Chưa có trên KHCN');
     return it;
   });
   /* tên trùng với bằng khác (cùng tên chuẩn hoá, khác số bằng) */
@@ -270,7 +266,7 @@ export default {
   acts: () => '<label class="sel">Năm cấp bằng <select data-tt-yr aria-label="Năm cấp bằng">' + [CY + 1, CY, CY - 1, CY - 2].map(y => '<option' + (String(y) === yr ? ' selected' : '') + '>' + y + '</option>').join('') + '</select></label><button class="btn" data-tt-scan>' + icon('refresh') + 'Quét lại</button>',
   sub() {
     const C = compute(); if (!C) return 'Tài sản trí tuệ · đang so với HEMIS';
-    if (!excel && !D.tstt) return 'Tài sản trí tuệ · chưa có nguồn: bấm Quét lại (KHCN) hoặc Nhập Excel SHTT';
+    if (!excel) return 'Tài sản trí tuệ · chưa nhập Excel SHTT: bấm Nhập Excel SHTT ở khối Nguồn dữ liệu';
     return 'Tài sản trí tuệ cấp bằng năm ' + yr + ': ' + C.n + ' bằng (' + C.nSc + ' sáng chế, ' + C.nGp + ' giải pháp hữu ích) · HEMIS có ' + C.nHemis;
   },
   init(c) {
@@ -305,6 +301,7 @@ export default {
     if (!C) h += '<div class="card">' + empty('refresh', D.busy.hemis ? 'Đang lấy tài sản trí tuệ trên HEMIS…' : 'Chưa có dữ liệu tài sản trí tuệ từ HEMIS', 'Anh/chị cần đăng nhập HEMIS trên Chrome.', D.busy.hemis ? '' : '<button class="btn pri" data-reload>' + icon('refresh') + 'Lấy từ HEMIS</button>') + '</div>';
     else {
       const c = a => C.rows.filter(r => r.act === a).length;
+      if (!excel) h += '<div class="note">' + icon('info') + '<div>Chỉ đẩy các bằng có trong file Excel SHTT của phòng. Bấm “Nhập Excel SHTT” ở khối Nguồn dữ liệu bên dưới. KHCN chỉ để đối chiếu, không dùng để dựng bản ghi HEMIS.</div></div>';
       h += blk('tt.bang', 'Tài sản trí tuệ', table(C), { headHtml: tabsHtml(Object.keys(TABS).map(k => [k, TABS[k] + ' (' + c(k) + ')']), tab) });
     }
     h += blk('tt.nguon', 'Nguồn dữ liệu', nguonHtml(), { fixed: true, def: true, head: '<span class="muted small" style="margin-left:8px">KHCN: ' + (D.tstt ? D.tstt.rows.length + ' bản ghi (sáng chế, GPHI) quét lúc ' + fmtTime(D.tstt.at) : 'chưa quét') + ' · Excel SHTT: ' + (excel ? esc(excel.name) + ', ' + excel.rows.length + ' dòng' : 'chưa nhập') + '</span>',
