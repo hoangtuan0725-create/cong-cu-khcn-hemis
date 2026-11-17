@@ -119,7 +119,11 @@ async function handle(msg) {
     case 'openEdit': {
       if (!/^\d+$/.test(String(msg.id))) throw new Error('Mã bài không hợp lệ');
       const tab = await chrome.tabs.create({ url: SITES.khcn.origin + '/CongBo/EditCongBo/' + msg.id + '?toantruong=true' });
-      if (msg.name) { await waitLoaded(tab.id); await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: fillJournal, args: [String(msg.name)] }); }
+      if (msg.name) {
+        await waitLoaded(tab.id);
+        try { await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: fillJournal, args: [String(msg.name)] }); }
+        catch (e) { await chrome.tabs.reload(tab.id); await waitLoaded(tab.id); await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: fillJournal, args: [String(msg.name)] }); }
+      }
       return true;
     }
     case 'fetch':
@@ -129,7 +133,12 @@ async function handle(msg) {
     case 'open': {
       if (!SITES[msg.site] || !okPath(msg.path)) throw new Error('Đường dẫn không hợp lệ');
       const tab = await chrome.tabs.create({ url: SITES[msg.site].origin + msg.path, active: msg.active !== false });
-      if (msg.fill && msg.fill.selector) { await waitLoaded(tab.id); await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: fillField, args: [String(msg.fill.selector), String(msg.fill.value || ''), String(msg.fill.note || '')] }); }
+      if (msg.fill && msg.fill.selector) {
+        const args = [String(msg.fill.selector), String(msg.fill.value || ''), String(msg.fill.note || '')];
+        await waitLoaded(tab.id);
+        try { await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: fillField, args }); }
+        catch (e) { await chrome.tabs.reload(tab.id); await waitLoaded(tab.id); await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: fillField, args }); }
+      }
       return true;
     }
     case 'openSite':
