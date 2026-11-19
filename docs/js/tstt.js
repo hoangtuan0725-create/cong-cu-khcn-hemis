@@ -4,6 +4,11 @@
 //  B. KHCN, Hoạt động khác: loại 4 (sáng chế), loại 6 (giải pháp hữu ích).
 // Chỉ thêm và sửa; công cụ KHÔNG BAO GIỜ xoá tài sản trí tuệ trên HEMIS.
 //
+// NGUYÊN NHÂN LẦN ĐẨY TRƯỚC CHỈ RA 1 BẰNG (Tuấn xác nhận): Cowork chỉ quét "độc quyền sáng chế" (loai=4), KHÔNG quét giải pháp hữu ích (loai=6).
+// Vì vậy luôn quét CẢ loai=4 và loai=6, cộng quét rộng (loai=null = mọi "Hoạt động khác") để bắt bằng KHCN xếp nhầm loại; phễu đối chiếu hiện số RIÊNG
+// sáng chế / GPHI ở mọi bước; một trong hai loại quét ra 0 thì cảnh báo rõ, không im lặng. Các chặn khác: không lọc ngày (from/target để trống),
+// không lọc trạng thái duyệt (chỉ hiện nhãn), không đòi file bằng, quét đủ trang nhiều lượt, năm lấy từ NGÀY CẤP (thiếu thì cột năm cấp, rồi năm trong số QĐ).
+//
 // GIẢ ĐỊNH VỀ HTML KHCN (chưa thử với dữ liệu thật):
 //  - /KhoaHocKhac/ToanBoKhoaHocKhac?page=N&currentFilter=&loai=4|6&from=&target=&iprivate=false&tt=0&chutri=&diachi=null&khoa=&nopoint=null:
 //    mỗi bản ghi là một <tr> có <td>, id lấy từ ShowDeTails('id') (hoặc hàm Show...( id ) khác) trong ondblclick/onclick/HTML của dòng.
@@ -37,12 +42,13 @@ const inval = () => { memo = null; };
 const txt = s => String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
 const lines = s => String(s == null ? '' : s).split(/\r?\n/).map(txt).filter(Boolean);
 const d10 = v => String(v || '').slice(0, 10);
+const yrOf = s => +((String(s || '').match(/(?<!\d)(?:19|20)\d{2}(?!\d)/) || [])[0]) || 0;
 const isoAll = s => [...String(s || '').matchAll(/(\d{1,2})\/(\d{1,2})\/(\d{4})/g)].map(m => m[3] + '-' + pad(m[2]) + '-' + pad(m[1]));
 const netErr = e => !B.isLogin(e) && /fetch|network|ERR_|kết nối|timeout/i.test(String(e && e.message));
 /* lệnh HEMIS/KHCN: lỗi mạng thì thử lại 1 lần sau 2 giây */
 const retry = async fn => { try { return await fn(); } catch (e) { if (!netErr(e)) throw e; await sleep(2000); return fn(); } };
 const hem = (m, p, d) => retry(() => B.hemis(m, p, d));
-const busyT = txt => { if (txt) D.busy.detai = txt; else delete D.busy.detai; emit('busy', 'detai'); };   // dùng chung dòng "đang làm" với Đề tài
+const busyT = txt => { if (txt) D.busy.tstt = txt; else delete D.busy.tstt; emit('busy', 'tstt'); };
 const validSo = s => { const t = txt(s); return /\d/.test(t) && norm(t).length >= 3 && !/đơn|ký số|chưa (có|cấp)/i.test(t); };
 const NOT_PATENT = /(^|[^\p{L}])(bản quyền|quyền tác giả|tác phẩm|chương trình máy tính|giáo trình|sách|chuyên khảo|nhãn hiệu)(?![\p{L}])/iu;
 const isTlu = s => /dhtl|thuyloi|truongdaihocthuyloi/.test(norm(s)) || /\btlu\b/i.test(String(s));
@@ -76,7 +82,7 @@ function parseSheets(sheets) {
       const warn = [], nd = qt ? { iso: isoAll(ngayQt)[0] || '' } : dateOf(get(C.ngay)), dd = dateOf(get(C.ngayDon)), nam = +(str(C.nam).match(/\d{4}/) || [])[0] || 0;
       if (nd.swapped || dd.swapped) { warn.push('Đã đổi lại ngày/tháng, kiểm tra'); nSwap++; }
       if (nd.iso && nam && +nd.iso.slice(0, 4) !== nam) warn.push('Năm cấp lệch: ngày cấp ' + nd.iso.slice(0, 4) + ', cột Năm cấp ' + nam);
-      rows.push({ src: 'Excel', kind, qt, loai: kind === 'gp' ? '02' : '01', so, don: txt(str(C.don)), ngayDon: dd.iso, qd: txt(str(C.qd)), ngay: nd.iso, nam: nd.iso ? +nd.iso.slice(0, 4) : nam, ten,
+      rows.push({ src: 'Excel', kind, qt, loai: kind === 'gp' ? '02' : '01', so, don: txt(str(C.don)), ngayDon: dd.iso, qd: txt(str(C.qd)), ngay: nd.iso, nam: nd.iso ? +nd.iso.slice(0, 4) : nam || yrOf(str(C.qd)), ten,
         chu: lines(str(C.chu)).join('\n'), dia: txt(str(C.dia)), tg: lines(str(C.tg)).join(', '), noiCap: txt(str(C.noiCap)), warn, sheet: sh.name, row: r + 1 });
     }
     list.push({ name: sh.name, kind, n: rows.length - n0 });
@@ -84,7 +90,7 @@ function parseSheets(sheets) {
   return { rows, list, ignored, nSwap };
 }
 async function nhapExcel(file) {
-  let sh; try { sh = await readXlsx(file); } catch (x) { toast('Không đọc được file Excel: ' + x.message, 'err'); return; }
+  let sh; try { sh = await readXlsx(file); } catch (x) { console.error('Đọc Excel:', x); toast('Không đọc được file Excel: ' + x.message, 'err'); return; }
   const p = parseSheets(sh);
   if (!p.list.length) { toast('Không thấy trang Bang_DQSC, Bang_GPHI hay Bang_sangche_QT (cần dòng tiêu đề có chữ "Số bằng" hoặc "Mã số").', 'err'); return; }
   excel = { name: file.name, at: Date.now(), rows: p.rows, sheets: p.list, ignored: p.ignored, nSwap: p.nSwap };
@@ -96,43 +102,53 @@ async function nhapExcel(file) {
 /* ================= Nguồn B: quét KHCN ================= */
 const listUrl = (loai, p) => '/KhoaHocKhac/ToanBoKhoaHocKhac?page=' + p + '&currentFilter=&loai=' + loai + '&from=&target=&iprivate=false&tt=0&chutri=&diachi=null&khoa=&nopoint=null';
 const parseRows = doc => [...doc.querySelectorAll('tr')].filter(tr => tr.querySelector('td')).map(tr => {
-  const h = (tr.getAttribute('ondblclick') || '') + (tr.getAttribute('onclick') || '') + tr.innerHTML;
+  const h = (tr.getAttribute('ondblclick') || '') + (tr.getAttribute('onclick') || '') + tr.innerHTML, t = tr.textContent;
   const m = h.match(/Show\w*\(\s*['"]?(\d+)/) || (tr.getAttribute('data-id') || '').match(/(\d+)/);
-  return m ? m[1] : null;
+  return m ? { id: m[1], st: /chưa phê duyệt/i.test(t) ? 'chua' : /đã phê duyệt/i.test(t) ? 'da' : '' } : null;
 }).filter(Boolean);
-async function scanLoai(loai, seen) {
+/* loai: 4, 6 hoặc 'null' (mọi loại Hoạt động khác). seen: id -> { loai (4|6|0), st }; got: tập id của riêng lần quét này */
+async function scanLoai(loai, seen, got) {
   let prev = '';
   for (let p = 1; p <= 80; p++) {
-    const ids = parseRows(await retry(() => B.khcn(listUrl(loai, p)))), sig = ids.join(',');
-    if (!ids.length || sig === prev) break;
-    prev = sig; ids.forEach(id => seen.set(id, loai));
+    const rs = parseRows(await retry(() => B.khcn(listUrl(loai, p)))), sig = rs.map(r => r.id).join(',');
+    if (!rs.length || sig === prev) break;
+    prev = sig; rs.forEach(r => { got.add(r.id); const o = seen.get(r.id); seen.set(r.id, { loai: +loai || (o && o.loai) || 0, st: r.st || (o && o.st) || '' }); });
   }
 }
 const parseDetail = (doc, loai) => {
   const dd = {}; doc.querySelectorAll('dt').forEach(dt => { const v = dt.nextElementSibling; if (v && v.tagName === 'DD') dd[norm(dt.textContent)] = v.textContent.replace(/\s+/g, ' ').trim(); });
   const g = (...res) => { for (const re of res) { const k = Object.keys(dd).find(x => re.test(x)); if (k) return dd[k]; } return ''; };
-  const ngay = isoAll(g(/^ngaycap/))[0] || '', nam = +(g(/^namcap/).match(/\d{4}/) || [])[0] || (ngay ? +ngay.slice(0, 4) : 0);
-  return { src: 'KHCN', qt: false, loai: loai === 6 ? '02' : '01', so: g(/^sobang/, /^sovanbang/, /^maso/, /^sodangky/), ten: g(/^ten(sangche|giaiphap|bang|khoahoc|cong|hoatdong)/, /^ten$/, /^ten/), don: g(/^sodon/), ngayDon: isoAll(g(/^ngaynop/))[0] || '',
-    qd: g(/^soqd/, /^soquyetdinh/), ngay, nam, chu: g(/^chubang/, /^chusohuu/), dia: '', tg: g(/^tacgia/, /^nhomtacgia/), noiCap: g(/^noicap/, /^coquancap/, /^tochuccap/), warn: [] };
+  const ngay = isoAll(g(/^ngaycap/))[0] || '', qd = g(/^soqd/, /^soquyetdinh/), nam = ngay ? +ngay.slice(0, 4) : +(g(/^namcap/).match(/\d{4}/) || [])[0] || yrOf(qd);
+  const ten = g(/^ten(sangche|giaiphap|bang|khoahoc|cong|hoatdong)/, /^ten$/, /^ten/);
+  return { src: 'KHCN', qt: false, loai: loai === 6 ? '02' : '01', so: g(/^sobang/, /^sovanbang/, /^maso/, /^sodangky/), ten, don: g(/^sodon/), ngayDon: isoAll(g(/^ngaynop/))[0] || '',
+    qd, ngay, nam, chu: g(/^chubang/, /^chusohuu/), dia: '', tg: g(/^tacgia/, /^nhomtacgia/), noiCap: g(/^noicap/, /^coquancap/, /^tochuccap/), warn: [], kind: ten + ' ' + g(/loai/, /hinhthuc/) };
 };
+const MISS = { 4: 'sáng chế', 6: 'giải pháp hữu ích' };
+const missing = () => D.tstt && D.tstt.n ? [4, 6].filter(l => !D.tstt.n['l' + l]).map(l => 'Không quét được ' + MISS[l] + ' nào trên KHCN (loại ' + l + '), kiểm tra lại.') : [];
 async function quet() {
-  if (D.busy.detai) return;
-  const seen = new Map(); let fresh = 0;
+  if (D.busy.tstt) return;
+  const seen = new Map(), sets = { 4: new Set(), 6: new Set(), 0: new Set() }; let fresh = 0;
   try {
     for (let pass = 1; pass <= 3; pass++) {
       const before = seen.size;
-      for (const l of [4, 6]) { await scanLoai(l, seen); busyT('Đang quét tài sản trí tuệ KHCN, lượt ' + pass + ': ' + seen.size + ' bản ghi…'); }
+      for (const l of [4, 6, 'null']) { await scanLoai(l, seen, sets[+l || 0]); busyT('Đang quét tài sản trí tuệ KHCN, lượt ' + pass + ': ' + seen.size + ' bản ghi…'); }
       fresh = seen.size - before;
       if (pass >= 2 && !fresh) break;
     }
-    const ids = [...seen.entries()]; let k = 0, bad = 0; const rows = [];
-    await pool(ids, 4, async ([id, loai]) => {
-      try { const r = parseDetail(await retry(() => B.khcn('/KhoaHocKhac/DetailsKhoaHocKhac', { id })), loai); if (r.ten || r.so) { r.id = id; rows.push(r); } else bad++; } catch (e) { if (B.isLogin(e)) throw e; bad++; }
+    const ids = [...seen.entries()]; let k = 0, bad = 0, bo = 0; const rows = [];
+    await pool(ids, 4, async ([id, v]) => {
+      try {
+        const r = parseDetail(await retry(() => B.khcn('/KhoaHocKhac/DetailsKhoaHocKhac', { id })), v.loai); r.id = id; r.st = v.st; r.other = !v.loai;
+        if (r.other) { /* chỉ có ở lần quét rộng: nhận bằng theo nội dung (có số bằng, tên/loại nói là bằng độc quyền, sáng chế, giải pháp hữu ích) */
+          if (validSo(r.so) && /bằng độc quyền|sáng chế|giải pháp hữu ích/i.test(r.kind)) { r.loai = /giải pháp hữu ích/i.test(r.kind) ? '02' : '01'; rows.push(r); } else bo++;
+        } else if (r.ten || r.so) rows.push(r); else bad++;
+      } catch (e) { if (B.isLogin(e)) throw e; bad++; }
       busyT('Đang đọc chi tiết tài sản trí tuệ: ' + (++k) + '/' + ids.length + '…');
     });
-    D.tstt = { at: Date.now(), rows: rows.sort((a, b) => a.id - b.id) };
+    D.tstt = { at: Date.now(), rows: rows.sort((a, b) => a.id - b.id), n: { l4: sets[4].size, l6: sets[6].size, all: sets[0].size, bo } };
     await S.set('data.tstt', D.tstt); inval(); done.clear();
     toast('Quét xong: ' + rows.length + ' bản ghi tài sản trí tuệ' + (bad ? ', ' + bad + ' bản ghi không đọc được' : '') + '.', bad ? 'err' : undefined);
+    missing().forEach(m => toast(m, 'err'));
     if (fresh) toast('Lượt quét cuối vẫn còn bản ghi mới, có thể còn sót. Nên bấm Quét lại.', 'err');
   } catch (x) { ctx.fail(x); } finally { busyT(); ctx.render(); }
 }
@@ -153,6 +169,7 @@ function merged() {
     FIELDS.forEach(f => { const p = [h, e].find(q => q && q[f]); it[f] = p ? p[f] : (f === 'nam' ? 0 : ''); });
     it.qt = !!(e && e.qt); it.src = e ? (h ? 'Excel + KHCN' : 'Excel') : 'KHCN';
     if (!it.noiCap && !it.qt && /^\d+$/.test(norm(it.so))) it.noiCap = CUC;
+    it.st = h ? h.st : ''; if (h && h.other) it.warn.push('KHCN xếp ở loại khác');
     if (e && !(h && h.ngay)) e.warn.forEach(w => it.warn.push(w));
     if (e && h) {
       const dif = [['ten', 'tên'], ['ngay', 'ngày cấp'], ['loai', 'loại']].filter(([f]) => e[f] && h[f] && (f === 'ten' ? norm(e[f]) !== norm(h[f]) : e[f] !== h[f])).map(q => q[1]);
@@ -202,19 +219,20 @@ const compute = () => {
   memo = { h: H, y: yr, C }; return C;
 };
 const canTick = r => (r.act === 'them' || r.act === 'sua') && !!r.it.ten && !(done.get(r.k) && done.get(r.k).ok);
-const isOn = r => canTick(r) && (sel.has(r.k) ? sel.get(r.k) : !r.it.noTick);
+/* Sua KHONG tick san: ban tren HEMIS da duoc soat tay (sua ca loi Excel); xem tung dong roi moi tick de khong ghi de so lieu dung */
+const isOn = r => canTick(r) && (sel.has(r.k) ? sel.get(r.k) : r.act === 'them' && !r.it.noTick);
 const rec = it => ({ id: crypto.randomUUID(), doN_VI_ID: DV, mA_GIAI_PHAP: txt(it.so), loaI_GIAI_PHAP: it.loai, teN_GIAI_PHAP: it.ten, sO_BANG: txt(it.so), sO_DON: it.don, ngaY_NOP_DON: it.ngayDon ? it.ngayDon + 'T00:00:00' : null, quyeT_DINH_CAP_BANG: it.qd,
   ngaY_CAP: it.ngay ? it.ngay + 'T00:00:00' : null, naM_DUOC_CAP_BANG: it.nam, chU_BANG: lines(it.chu).join(', '), taC_GIA_SANG_CHE: it.tg, tO_CHUC_CAP_BANG: it.noiCap, isBuildIn: false, isBuildInAll: false });
 const val = (f, v) => f === 'ngay' || f === 'ngayDon' ? v + 'T00:00:00' : f === 'so' ? txt(v) : f === 'chu' ? lines(v).join(', ') : v;
 
 /* ================= Bảng ================= */
 const tab_ = C => C.rows.filter(r => r.act === tab);
-const pills = (it, extra) => (extra || '') + (it.warn || []).map(w => pill(/^Thiếu tên$/.test(w) ? 'err' : 'warn', w)).join('');
+const pills = (it, extra) => (extra || '') + (it.st === 'da' ? pill('ok', 'Đã duyệt trên KHCN') : it.st === 'chua' ? pill('mut', 'Chưa duyệt trên KHCN') : '') + (it.warn || []).map(w => pill(/^Thiếu tên$/.test(w) ? 'err' : 'warn', w)).join('');
 const resCell = r => { const d = done.get(r.k); return d ? (d.ok ? pill('ok', 'Đã xong') : pill('err', d.err)) : ''; };
 const ck = r => '<td class="ck"><input type="checkbox" data-ck="' + esc(r.k) + '" aria-label="Chọn"' + (isOn(r) ? ' checked' : '') + (!canTick(r) || going() ? ' disabled' : '') + '></td>';
 const nameCell = it => '<td class="t"><b>' + esc(it.ten || '(không có tên)') + '</b><div class="muted">' + esc('Chủ bằng: ' + (lines(it.chu).join(', ') || '—') + ' · Tác giả: ' + (it.tg || '—')) + '</div></td>';
 const rowHtml = r => {
-  const it = r.it, so = '<td class="nowrap">' + esc(it.so || '—') + '</td>', nm = nameCell(it), lo = '<td>' + pill('info', LOAI[it.loai] || it.loai, undefined) + '</td>';
+  const it = r.it, so = '<td class="nowrap">' + esc(it.so || '—') + '</td>', nm = nameCell(it), lo = '<td class="nowrap">' + pill('info', LOAI[it.loai] || it.loai, undefined) + '</td>';
   if (r.act === 'boqua') return '<tr data-k="' + esc(r.k) + '">' + so + nm + '<td class="nowrap">' + esc(it.src) + '</td><td>' + pill('mut', r.why, 'info') + '</td></tr>';
   if (r.act === 'sua') return '<tr data-k="' + esc(r.k) + '">' + ck(r) + so + nm + '<td>' + r.diffs.map(f => '<div><span class="muted">' + FL[f] + ':</span> <span class="was">' + esc(shown(f, r.c[f]) || '(trống)') + '</span> ' + icon('right') + ' <span class="will">' + esc(shown(f, it[f])) + '</span></div>').join('') + '</td><td class="nowrap">' + esc(it.src) + '</td><td>' + pills(it, resCell(r)) + '</td></tr>';
   return '<tr data-k="' + esc(r.k) + '">' + (r.act === 'them' ? ck(r) : '') + so + nm + lo + '<td class="nowrap">' + vnDate(it.ngay) + '</td><td class="nowrap">' + esc(it.src) + '</td><td>' + pills(it, resCell(r)) + '</td></tr>';
@@ -227,8 +245,25 @@ const table = C => {
     (L.length > MAXR ? '<div class="more">Đang hiện ' + MAXR + '/' + L.length + '. Mục được tick đều sẽ chạy. Bấm biểu tượng Excel để xem đủ.</div>' : '') +
     (tab === 'them' ? '<div class="more">Mục có lưu ý “Chủ bằng không phải TLU” không tick sẵn. Công cụ không xoá tài sản trí tuệ trên HEMIS.</div>' : '');
 };
-const nguonHtml = () => '<div class="card-b">' + (excel ? '<div>Excel SHTT: <b>' + esc(excel.name) + '</b>, nhập lúc ' + fmtTime(excel.at) + '. Đã đọc ' + excel.sheets.map(s => esc(s.name) + ' (' + s.n + ')').join(', ') + (excel.ignored.length ? '. Bỏ qua: ' + excel.ignored.map(esc).join(', ') : '') + '. <button class="lnk" data-tt-rm>Bỏ file đã nhập</button></div>' : '<div class="muted">Chưa nhập file Excel SHTT. File lưu trên máy này, lần sau mở lại vẫn còn.</div>') +
-  '<div style="margin-top:6px">KHCN: ' + (D.tstt ? D.tstt.rows.length + ' bản ghi, quét lúc ' + fmtTime(D.tstt.at) : '<span class="muted">chưa quét, bấm Quét lại</span>') + '</div></div>';
+const split = L => { const a = L.filter(r => r.loai === '01' && !r.other).length, b = L.filter(r => r.loai === '02' && !r.other).length, c = L.filter(r => r.other).length; return 'sáng chế ' + a + ' · GPHI ' + b + (c ? ' · xếp loại khác ' + c : ''); };
+const khp = r => r.it.parts.find(p => p.src === 'KHCN'), exp = r => r.it.parts.find(p => p.src === 'Excel');
+/* phễu đối chiếu: KHCN quét được -> có số bằng hợp lệ -> cấp trong năm -> sẽ đẩy; Excel: bằng trong năm, trong đó bằng KHCN chưa có */
+const funnel = C => {
+  const Y = +yr, n = D.tstt && D.tstt.n, kh = D.tstt ? D.tstt.rows : null, ln = (t, v, L) => '<div>' + t + ' <b>' + v + '</b>: ' + split(L) + '</div>';
+  let h = '<div class="muted small" style="margin-bottom:4px">Phễu đối chiếu năm cấp bằng ' + esc(yr) + '</div>';
+  if (kh) {
+    const valid = kh.filter(r => validSo(r.so)), inY = valid.filter(r => r.nam === Y), push = C ? C.rows.filter(r => (r.act === 'them' || r.act === 'sua') && khp(r)).map(khp) : [];
+    h += ln('KHCN quét được', kh.length + ' bản ghi', kh) + (n ? '<div class="muted small">loại 4 (sáng chế): ' + n.l4 + ' · loại 6 (GPHI): ' + n.l6 + ' · toàn bộ Hoạt động khác: ' + n.all + (n.bo ? ' · bỏ ' + n.bo + ' bản ghi loại khác không phải bằng' : '') + '</div>' : '') +
+      ln('→ có số bằng hợp lệ', valid.length, valid) + ln('→ cấp trong năm ' + yr, inY.length, inY) + ln('→ sẽ đẩy (Thêm + Sửa)', push.length, push);
+  } else h += '<div>KHCN: <span class="muted">chưa quét, bấm Quét lại</span></div>';
+  if (excel && C) {
+    const ex = C.rows.filter(r => r.act !== 'boqua' && exp(r)), only = ex.filter(r => !khp(r));
+    h += '<div style="margin-top:6px">Excel: <b>' + ex.length + '</b> bằng cấp năm ' + esc(yr) + ': ' + split(ex.map(exp)) + (D.tstt ? ', trong đó <b>' + only.length + '</b> bằng KHCN chưa có' + (only.length ? ': ' + only.slice(0, 8).map(r => esc(r.it.so + ' ' + r.it.ten)).join('; ') + (only.length > 8 ? '…' : '') + '. Nên khai bổ sung lên KHCN.' : '.') : '') + '</div>';
+  }
+  return h;
+};
+const nguonHtml = C => '<div class="card-b">' + funnel(C) +
+  '<div style="margin-top:8px">' + (excel ? 'Excel SHTT: <b>' + esc(excel.name) + '</b>, nhập lúc ' + fmtTime(excel.at) + '. Đã đọc ' + excel.sheets.map(s => esc(s.name) + ' (' + s.n + ')').join(', ') + (excel.ignored.length ? '. Bỏ qua: ' + excel.ignored.map(esc).join(', ') : '') + '. <button class="lnk" data-tt-rm>Bỏ file đã nhập</button>' : '<span class="muted">Chưa nhập file Excel SHTT. File lưu trên máy này, lần sau mở lại vẫn còn.</span>') + '</div></div>';
 
 /* ================= Xuất Excel ================= */
 const xHead = ['Số bằng', 'Tên', 'Loại', 'Chủ bằng', 'Tác giả', 'Số đơn', 'Ngày nộp đơn', 'Số QĐ', 'Ngày cấp', 'Năm cấp', 'Nơi cấp', 'Nguồn', 'Thay đổi / lý do / lưu ý'];
@@ -267,7 +302,7 @@ async function runAll() {
 /* ================= Giao diện: một loại dữ liệu trong màn "Đẩy lên HEMIS" ================= */
 const nPend = C => C ? C.rows.filter(canTick).length : 0;
 export default {
-  id: 'tstt', title: 'Tài sản trí tuệ', on: ['hemis', 'settings'], busy: ['hemis', 'detai'],
+  id: 'tstt', title: 'Tài sản trí tuệ', on: ['hemis', 'settings'], busy: ['hemis', 'tstt'],
   badge: () => nPend(compute()),
   acts: () => '<label class="sel">Năm cấp bằng <select data-tt-yr aria-label="Năm cấp bằng">' + [CY + 1, CY, CY - 1, CY - 2].map(y => '<option' + (String(y) === yr ? ' selected' : '') + '>' + y + '</option>').join('') + '</select></label><button class="btn" data-tt-scan>' + icon('refresh') + 'Quét lại</button>',
   sub() {
@@ -293,7 +328,7 @@ export default {
     }
   },
   async onChange(e) {
-    const f = e.target.closest('[data-tt-file]'); if (f) { const file = f.files && f.files[0]; f.value = ''; if (file) await nhapExcel(file); return; }
+      const f = e.target.closest('[data-tt-file]'); if (f) { const file = f.files && f.files[0]; f.value = ''; if (file) await nhapExcel(file); return; }
     const y = e.target.closest('[data-tt-yr]'); if (y) { yr = y.value; setPref('tt.year', +yr); sel.clear(); inval(); ctx.render(); return; }
     const c = e.target.closest('[data-ck]'), a = e.target.closest('[data-all]'), C = compute(); if (!C) return;
     if (c) sel.set(c.dataset.ck, c.checked); else if (a) tab_(C).forEach(r => { if (canTick(r)) sel.set(r.k, a.checked); }); else return;
@@ -303,18 +338,18 @@ export default {
   render(body) {
     if (!loaded) { body.innerHTML = ''; return; }
     const C = compute();
-    let h = '';
+    let h = missing().map(m => '<div class="note err" role="alert">' + icon('alert') + '<div>' + esc(m) + '</div></div>').join('');
     if (!C) h += '<div class="card">' + empty('refresh', D.busy.hemis ? 'Đang lấy tài sản trí tuệ trên HEMIS…' : 'Chưa có dữ liệu tài sản trí tuệ từ HEMIS', 'Anh/chị cần đăng nhập HEMIS trên Chrome.', D.busy.hemis ? '' : '<button class="btn pri" data-reload>' + icon('refresh') + 'Lấy từ HEMIS</button>') + '</div>';
     else {
       const c = a => C.rows.filter(r => r.act === a).length;
       if (!excel) h += '<div class="note">' + icon('info') + '<div>Nên nhập Excel SHTT để không sót bằng (đợt 2026 KHCN thiếu nhiều). Bấm “Nhập Excel SHTT” ở khối Nguồn dữ liệu bên dưới.</div></div>';
       h += blk('tt.bang', 'Tài sản trí tuệ', table(C), { headHtml: tabsHtml(Object.keys(TABS).map(k => [k, TABS[k] + ' (' + c(k) + ')']), tab) });
     }
-    h += blk('tt.nguon', 'Nguồn dữ liệu', nguonHtml(), { fixed: true, def: true, head: '<span class="muted small" style="margin-left:8px">KHCN: ' + (D.tstt ? D.tstt.rows.length + ' bản ghi (sáng chế, GPHI) quét lúc ' + fmtTime(D.tstt.at) : 'chưa quét') + ' · Excel SHTT: ' + (excel ? esc(excel.name) + ', ' + excel.rows.length + ' dòng' : 'chưa nhập') + '</span>',
+    h += blk('tt.nguon', 'Nguồn dữ liệu', nguonHtml(C), { fixed: true, head: '<span class="muted small" style="margin-left:8px">KHCN: ' + (D.tstt ? D.tstt.rows.length + ' bản ghi (sáng chế, GPHI) quét lúc ' + fmtTime(D.tstt.at) : 'chưa quét') + ' · Excel SHTT: ' + (excel ? esc(excel.name) + ', ' + excel.rows.length + ' dòng' : 'chưa nhập') + '</span>',
       tools: '<button class="btn sm" data-tt-pick>' + icon('plus') + 'Nhập Excel SHTT</button><input type="file" hidden data-tt-file accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" aria-label="Chọn file Excel SHTT">' });
     body.innerHTML = h;
     const xb = body.querySelector('[data-close="tt.bang"]'); if (xb && going()) xb.disabled = true;
-    const sc = ctx.root.querySelector('[data-tt-scan]'); if (sc) sc.disabled = !!D.busy.detai;
+    const sc = ctx.root.querySelector('[data-tt-scan]'); if (sc) sc.disabled = !!D.busy.tstt;
   },
   foot() {
     const C = compute(); if (!C) return '';

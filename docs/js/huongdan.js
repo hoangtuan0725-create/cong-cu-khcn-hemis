@@ -12,18 +12,20 @@ export const update = v => drawer({
     '<li><a href="tien-ich-khcn-hemis.zip" download="Tiện ích KHCN HEMIS.zip">Tải tiện ích mới (file zip)</a>, giải nén <b>đè lên thư mục tiện ích cũ</b> (chọn Replace khi được hỏi).</li>' +
     '<li>Mở <b>chrome://extensions</b>, ở ô “Công cụ KHCN TLU → HEMIS” bấm nút <b>Reload</b> (mũi tên tròn).</li>' +
     '<li>Quay lại trang này, bấm <b>F5</b>.</li></ol>' +
+    '<p><a href="Hướng dẫn cài đặt.pdf" target="_blank" rel="noopener">Xem hướng dẫn có ảnh (PDF)</a></p>' +
     '<div class="note">' + icon('info') + '<div>Các lần cập nhật công cụ khác chỉ cần F5, không phải làm lại bước này.</div></div>'
 });
 
 export const guide = () => drawer({
   title: 'Cài tiện ích cầu nối', wide: true,
-  body: '<p>Trang này cần tiện ích Chrome <b>“Công cụ KHCN TLU → HEMIS”</b> để đọc dữ liệu KHCN và HEMIS bằng phiên đăng nhập của anh/chị. Tiện ích không lưu mật khẩu và không gửi dữ liệu đi nơi khác.</p>' +
+  body: '<p>Trang này cần tiện ích Chrome <b>“Công cụ KHCN TLU → HEMIS”</b> để đọc dữ liệu KHCN và HEMIS bằng phiên đăng nhập của anh/chị. Tiện ích không lưu mật khẩu và không gửi dữ liệu đi nơi khác. Chỉ cài một lần.</p>' +
     '<ol style="padding-left:20px;line-height:1.9">' +
-    '<li><a href="tien-ich-khcn-hemis.zip" download="Tiện ích KHCN HEMIS.zip">Tải tiện ích (file zip)</a>, rồi giải nén ra một thư mục (bấm chuột phải → <b>Extract All</b>).</li>' +
+    '<li><a href="tien-ich-khcn-hemis.zip" download="Tiện ích KHCN HEMIS.zip">Tải tiện ích (file zip)</a>, bấm chuột phải vào file → <b>Extract All</b>. Để thư mục ở chỗ cố định (ví dụ Documents), <b>không xoá, không đổi chỗ</b>.</li>' +
     '<li>Mở Chrome, gõ vào thanh địa chỉ: <b>chrome://extensions</b></li>' +
     '<li>Nếu đang có bản cũ “Công cụ KHCN TLU → HEMIS” 1.x: bấm <b>Remove</b> để gỡ.</li>' +
     '<li>Bật <b>Developer mode</b> (góc trên bên phải).</li>' +
-    '<li>Bấm <b>Load unpacked</b> → chọn thư mục vừa giải nén.</li>' +
+    '<li>Bấm <b>Load unpacked</b> → chọn thư mục <b>Tiện ích KHCN HEMIS</b> bên trong thư mục vừa giải nén (có file manifest.json).</li>' +
     '<li>Quay lại trang này, bấm <b>F5</b>.</li></ol>' +
-    '<div class="note">' + icon('info') + '<div>Từ nay bấm biểu tượng tiện ích trên thanh Chrome là mở công cụ thành một tab riêng. Muốn mở nhiều màn cùng lúc thì mở thêm tab (chuột giữa vào mục menu). Khi cần lấy dữ liệu, công cụ dùng tab KHCN/HEMIS đang mở; chưa có thì tự mở ngầm, anh/chị chỉ cần đăng nhập.</div></div>'
+    '<p><a href="Hướng dẫn cài đặt.pdf" target="_blank" rel="noopener">Xem hướng dẫn có ảnh (PDF)</a></p>' +
+    '<div class="note">' + icon('info') + '<div>Các lần công cụ có bản mới chỉ cần F5. Bấm biểu tượng tiện ích trên thanh Chrome là mở công cụ thành một tab riêng. Khi cần lấy dữ liệu, công cụ dùng tab KHCN/HEMIS đang mở; chưa có thì tự mở ngầm, anh/chị chỉ cần đăng nhập.</div></div>'
 });

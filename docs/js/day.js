@@ -22,7 +22,7 @@ const ctx = {
 };
 
 const scr = {
-  id: 'day', title: 'Đẩy lên HEMIS', icon: 'up', group: 2, busy: ['hemis', 'detai'], on: ['scan', 'hemis', 'settings', 'detai'],
+  id: 'day', title: 'Đẩy lên HEMIS', icon: 'up', group: 2, busy: ['hemis', 'detai', 'tstt'], on: ['scan', 'hemis', 'settings', 'detai'],
   badge: () => { const n = KINDS.reduce((s, k) => s + (k.badge() || 0), 0); return n ? { n, label: n + ' thay đổi chờ chạy', info: true } : null; },
   init(el) {
     root = el; el.innerHTML = screenHtml({ title: 'Đẩy lên HEMIS', foot: true });

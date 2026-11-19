@@ -1,7 +1,7 @@
 // Các bước kiểm thử cho màn Danh sách bài, Đẩy lên HEMIS, Rà soát, Chỉ số TT 83 và giao diện điện thoại.
 // Được gia-lap.test.js gọi sau bước Bảng tổng hợp (lúc đó D.scan là năm 2025, D.stats là 2021–2026).
 const fs = require('fs'), os = require('os'), path = require('path'), { execFileSync } = require('child_process');
-module.exports = async ({ pg, APP, shot, idle, ok, writes, hem, nv, dts, dtIn, tstt }) => {
+module.exports = async ({ pg, APP, shot, idle, ok, writes, hem, nv, dts, dtIn, tstt, ttCtl, errs }) => {
   const S = s => '[data-scr="' + s + '"]';
   const OUT = process.env.ANH || path.join(os.tmpdir(), 'anh-kiem-thu');
   /* bam nut Excel o goc khoi, luu file va mo bang openpyxl: co dong, cot A du rong */
@@ -218,7 +218,7 @@ print(json.dumps({'sheets': wb.sheetnames, 'rows': ws.max_row, 'w': ws.column_di
   /* ---------- Tài sản trí tuệ ---------- */
   console.log('8c. Tài sản trí tuệ');
   /* file Excel SHTT giả (tên người, số bằng bịa): ô ngày kiểu Date bị đảo, ô ngày kiểu chữ, chủ bằng ngoài TLU, cột chủ bằng lệch, đơn, bằng quốc tế */
-  const fx = path.join(OUT, 'Thống kê SHTT thử.xlsx');
+  const fx = path.join(OUT, 'Thong ke SHTT thu.xlsx');
   execFileSync('python3', ['-I', '-c', `
 import sys, datetime, openpyxl
 wb = openpyxl.Workbook(); wb.remove(wb.active)
@@ -252,43 +252,57 @@ sh('Bang_GPHI', 3, [
 sh('Bang_sangche_QT', 3, [[1, 'Mã số: 202699887766B\\nCấp ngày 07/10/2026', 'Bằng quốc tế thử', 'Trần Thử', 'Cơ quan Sáng chế Thử', 2026]], ['TT', 'Mã số', 'Tên sáng chế quốc tế', 'Tác giả', 'Nơi cấp', 'Năm cấp'])
 wb.create_sheet('Copyright').cell(1, 1, 'Bản quyền')
 wb.save(sys.argv[1])`, fx]);
-  const DT = S('day'), tt = k => writes.filter(w => w[0] === k), ttTab = async t => { await pg.click(DT + ' [data-tab="' + t + '"]'); await pg.waitForTimeout(150); };
+  const DT = S('day'), rw = so => pg.locator(DT + ' [data-blk="tt.bang"] tr[data-k]').filter({ has: pg.locator('td.nowrap', { hasText: new RegExp('^' + so + '$') }) }), tt = k => writes.filter(w => w[0] === k), ttTab = async t => { await pg.click(DT + ' [data-tab="' + t + '"]'); await pg.waitForTimeout(150); };
   await pg.goto(APP + '#day'); await pg.waitForSelector(DT + ' [data-kind="tstt"]'); await pg.click(DT + ' [data-kind="tstt"]');
   await pg.waitForSelector(DT + ' [data-tt-scan]'); await pg.selectOption(DT + ' [data-tt-yr]', '2026');
   ok(/chưa có nguồn/.test(await pg.locator(DT + ' [data-sub]').innerText()), 'chưa có nguồn thì tóm tắt báo chưa có nguồn');
-  await pg.click(DT + ' [data-tt-scan]'); await pg.waitForTimeout(300); await idle();
-  await pg.waitForFunction(() => /KHCN: 6 bản ghi/.test(document.querySelector('[data-scr="day"] [data-blk="tt.nguon"]').textContent), null, { timeout: 30000 });
-  ok(true, 'quét KHCN đủ 6 bản ghi (loại 4 và 6) dù lượt đầu sót một dòng');
+  /* GPHI quét ra 0 (loại 6 hỏng): phải cảnh báo rõ, không im lặng */
+  ttCtl.off6 = true; await pg.click(DT + ' [data-tt-scan]'); await pg.waitForTimeout(300); await idle();
+  await pg.waitForFunction(() => /Không quét được giải pháp hữu ích nào trên KHCN/.test(document.querySelector('[data-scr="day"] [data-body]').textContent), null, { timeout: 30000 });
+  ok(!/Không quét được sáng chế/.test(await pg.locator(DT + ' [data-body]').innerText()), 'loại 6 quét ra 0 thì cảnh báo "Không quét được giải pháp hữu ích nào trên KHCN" (sáng chế vẫn quét được, không cảnh báo)');
+  ttCtl.off6 = false; await pg.click(DT + ' [data-tt-scan]'); await pg.waitForTimeout(300); await idle();
+  await pg.waitForFunction(() => /KHCN: 8 bản ghi/.test(document.querySelector('[data-scr="day"] [data-blk="tt.nguon"]').textContent) && !/Không quét được/.test(document.querySelector('[data-scr="day"] [data-body]').textContent), null, { timeout: 30000 });
+  ok(true, 'quét lại khi loại 6 chạy bình thường: hết cảnh báo, KHCN có 8 bản ghi (sáng chế, GPHI, bằng xếp loại khác; không file, chưa duyệt vẫn lấy)');
+  const fn0 = (await pg.locator(DT + ' [data-blk="tt.nguon"]').innerText()).replace(/\s+/g, ' ');
+  ok(/KHCN quét được 8 bản ghi: sáng chế 5 · GPHI 2 · xếp loại khác 1/.test(fn0) && /loại 4 \(sáng chế\): 5 · loại 6 \(GPHI\): 2 · toàn bộ Hoạt động khác: 10 · bỏ 2 bản ghi loại khác không phải bằng/.test(fn0), 'phễu: KHCN quét được 8 bản ghi, tách riêng sáng chế 5, GPHI 2, loại khác 1; loại 4 = 5, loại 6 = 2, toàn bộ = 10, bỏ 2');
+  ok(/có số bằng hợp lệ 7: sáng chế 4 · GPHI 2 · xếp loại khác 1/.test(fn0) && /cấp trong năm 2026 7/.test(fn0) && /sẽ đẩy \(Thêm \+ Sửa\) 6: sáng chế 3 · GPHI 2 · xếp loại khác 1/.test(fn0), 'phễu: có số bằng hợp lệ 7, cấp trong năm 7, sẽ đẩy 6 (cả sáng chế và GPHI)');
   /* chưa nhập Excel: vẫn chạy với KHCN (4 bằng năm 2026 thêm được, 2 bản ghi nghi nhập nhầm loại vào Bỏ qua), có note nên nhập Excel */
   const t0 = await pg.locator(DT + ' [data-blk="tt.bang"] .tabs').innerText();
-  ok(/Thêm \(4\)/.test(t0) && /Sửa \(0\)/.test(t0) && /Bỏ qua \(2\)/.test(t0) && /Nên nhập Excel SHTT/.test(await pg.locator(DT + ' .note').innerText()), 'chưa nhập Excel: vẫn có 4 bằng từ KHCN ở Thêm, 2 ở Bỏ qua, note nên nhập Excel (' + t0.replace(/\s+/g, ' ') + ')');
+  ok(/Thêm \(6\)/.test(t0) && /Sửa \(0\)/.test(t0) && /Bỏ qua \(2\)/.test(t0) && /Nên nhập Excel SHTT/.test(await pg.locator(DT + ' .note').innerText()), 'chưa nhập Excel: vẫn có 6 bằng từ KHCN (cả sáng chế lẫn GPHI, bằng chưa duyệt, bằng xếp loại khác) ở Thêm, 2 ở Bỏ qua, note nên nhập Excel (' + t0.replace(/\s+/g, ' ') + ')');
   ok(!(await pg.locator(DT + ' [data-run]').isDisabled()), 'chưa nhập Excel: vẫn chạy được với KHCN');
-  await pg.setInputFiles(DT + ' [data-tt-file]', fx); await pg.waitForFunction(() => /Thống kê SHTT thử/.test(document.querySelector('[data-scr="day"] [data-blk="tt.nguon"]').textContent), null, { timeout: 15000 });
+  const [fc] = await Promise.all([pg.waitForEvent('filechooser'), pg.click(DT + ' [data-tt-pick]')]); await fc.setFiles(fx); /* tên file ASCII: Playwright trong môi trường này không gửi được đường dẫn có dấu */ await pg.waitForFunction(() => /Thong ke SHTT thu/.test(document.querySelector('[data-scr="day"] [data-blk="tt.nguon"]').textContent), null, { timeout: 15000 });
   await pg.waitForTimeout(300);
   const tabs = await pg.locator(DT + ' [data-blk="tt.bang"] .tabs').innerText();
-  ok(/Thêm \(10\)/.test(tabs) && /Sửa \(1\)/.test(tabs) && /Bỏ qua \(5\)/.test(tabs) && /Đã khớp \(1\)/.test(tabs), 'tab: Thêm 10, Sửa 1, Bỏ qua 5, Đã khớp 1 (' + tabs.replace(/\s+/g, ' ') + ')');
-  ok(/Excel \+ KHCN/.test(await pg.locator(DT + ' tr:has-text("70001")').innerText()), 'bằng 70001 có ở cả hai nguồn');
-  const r2 = await pg.locator(DT + ' tr:has-text("70002")').innerText();
+  ok(/Thêm \(12\)/.test(tabs) && /Sửa \(1\)/.test(tabs) && /Bỏ qua \(5\)/.test(tabs) && /Đã khớp \(1\)/.test(tabs), 'tab: Thêm 12, Sửa 1, Bỏ qua 5, Đã khớp 1 (' + tabs.replace(/\s+/g, ' ') + ')');
+  ok(/Excel \+ KHCN/.test(await rw('70001').innerText()), 'bằng 70001 có ở cả hai nguồn');
+  const r2 = await rw('70002').innerText();
   ok(/06\/05\/2026/.test(r2) && /Đã đổi lại ngày\/tháng/.test(r2), 'ô ngày Date 05/06 bị đảo được đổi lại thành 06/05/2026 kèm cảnh báo');
-  ok(/04\/03\/2026/.test(await pg.locator(DT + ' tr:has-text("8002")').innerText()), 'giải pháp 8002 đổi lại thành 04/03/2026');
-  ok(/15\/03\/2026/.test(await pg.locator(DT + ' tr:has-text("70001")').innerText()) && !/Đã đổi lại/.test(await pg.locator(DT + ' tr:has-text("70001")').innerText()), 'ô ngày kiểu chữ 15/03/2026 đọc đúng như chữ, không cảnh báo');
-  ok(/07\/10\/2026/.test(await pg.locator(DT + ' tr:has-text("202699887766B")').innerText()), 'bằng quốc tế: lấy số và ngày từ ô "Mã số"');
-  ok(/Năm cấp lệch/.test(await pg.locator(DT + ' tr:has-text("70006")').innerText()), 'năm cấp lệch với ngày cấp thì cảnh báo');
-  const r3 = pg.locator(DT + ' tr:has-text("70003")');
+  ok(/04\/03\/2026/.test(await rw('8002').innerText()), 'giải pháp 8002 đổi lại thành 04/03/2026');
+  ok(/15\/03\/2026/.test(await rw('70001').innerText()) && !/Đã đổi lại/.test(await rw('70001').innerText()), 'ô ngày kiểu chữ 15/03/2026 đọc đúng như chữ, không cảnh báo');
+  ok(/07\/10\/2026/.test(await rw('202699887766B').innerText()), 'bằng quốc tế: lấy số và ngày từ ô "Mã số"');
+  ok(/Năm cấp lệch/.test(await rw('70006').innerText()), 'năm cấp lệch với ngày cấp thì cảnh báo');
+  const r3 = rw('70003');
   ok(/Chủ bằng không phải TLU/.test(await r3.innerText()) && !(await r3.locator('[data-ck]').isChecked()), 'chủ bằng ngoài TLU: cảnh báo và không tick sẵn');
-  ok(/Chủ bằng không phải TLU/.test(await pg.locator(DT + ' tr:has-text("CN 2026001")').innerText()) && !(await pg.locator(DT + ' tr:has-text("CN 2026001") [data-ck]').isChecked()), 'bằng nước ngoài chỉ có ở KHCN vẫn vào Thêm, cảnh báo và không tick sẵn');
-  ok(/Chủ bằng có nhiều tên người/.test(await pg.locator(DT + ' tr:has-text("8002")').innerText()), 'cột Chủ bằng nhiều tên người, Tác giả trống thì cảnh báo lệch cột');
-  ok(/KHCN và Excel khác nhau: chủ bằng/.test(await pg.locator(DT + ' tr:has-text("8001")').innerText()), 'KHCN và Excel khác nhau ở chủ bằng thì cảnh báo (dùng giá trị KHCN)');
-  ok(/Tên trùng với bằng/.test(await pg.locator(DT + ' tr:has-text("8003")').innerText()), 'tên trùng với bằng khác thì cảnh báo');
-  ok(/Chỉ có trong Excel, nên khai bổ sung lên KHCN/.test(await pg.locator(DT + ' tr:has-text("8002")').innerText()) && !/Chỉ có trong Excel/.test(await pg.locator(DT + ' tr:has-text("70001")').innerText()) && !(await pg.locator(DT + ' tr:has-text("8002") [data-ck]').isDisabled()), 'bằng chỉ có trong Excel vẫn Thêm được, chỉ cảnh báo nhẹ');
-  ok(!(await pg.locator(DT + ' tr:has-text("99999")').count()), 'trang thống kê TK_DQSC không được đọc');
+  ok(/Chủ bằng không phải TLU/.test(await rw('CN 2026001').innerText()) && !(await rw('CN 2026001').locator('[data-ck]').isChecked()), 'bằng nước ngoài chỉ có ở KHCN vẫn vào Thêm, cảnh báo và không tick sẵn');
+  ok(/Chủ bằng có nhiều tên người/.test(await rw('8002').innerText()), 'cột Chủ bằng nhiều tên người, Tác giả trống thì cảnh báo lệch cột');
+  ok(/KHCN và Excel khác nhau: chủ bằng/.test(await rw('8001').innerText()), 'KHCN và Excel khác nhau ở chủ bằng thì cảnh báo (dùng giá trị KHCN)');
+  ok(/Tên trùng với bằng/.test(await rw('8003').innerText()), 'tên trùng với bằng khác thì cảnh báo');
+  ok(/Chỉ có trong Excel, nên khai bổ sung lên KHCN/.test(await rw('8002').innerText()) && !/Chỉ có trong Excel/.test(await rw('70001').innerText()) && !(await rw('8002').locator('[data-ck]').isDisabled()), 'bằng chỉ có trong Excel vẫn Thêm được, chỉ cảnh báo nhẹ');
+  ok(!(await rw('99999').count()), 'trang thống kê TK_DQSC không được đọc');
   const ft = await pg.locator(DT + ' [data-foot]').innerText();
-  ok(/9 thay đổi/.test(ft) && /thêm 8/.test(ft) && /sửa 1/.test(ft), 'chân màn: 9 thay đổi (thêm 8, sửa 1), 2 bằng ngoài TLU không tick sẵn');
-  await shot('17 Tài sản trí tuệ');
+  ok(/10 thay đổi/.test(ft) && /thêm 10/.test(ft) && /sửa 0/.test(ft), 'chân màn: 10 thay đổi (thêm 10), Sửa không tick sẵn, 2 bằng ngoài TLU không tick sẵn');
+  ok(/Chưa duyệt trên KHCN/.test(await rw('70007').innerText()) && /KHCN xếp ở loại khác/.test(await rw('70008').innerText()), 'bằng chưa duyệt chỉ hiện nhãn trạng thái (vẫn Thêm được); bằng ở loại khác kèm cảnh báo "KHCN xếp ở loại khác"');
+  ok(!(await pg.locator(DT + ' [data-blk="tt.bang"] tr:has-text("Hội thảo thử")').count()) && !(await pg.locator(DT + ' [data-blk="tt.bang"] tr:has-text("Giấy khen thử")').count()), 'bản ghi loại khác không phải bằng (hội thảo, giấy khen) không lẫn vào bảng');
+  const fn1 = (await pg.locator(DT + ' [data-blk="tt.nguon"]').innerText()).replace(/\s+/g, ' ');
+  ok(/Excel: 10 bằng cấp năm 2026: sáng chế 7 · GPHI 3, trong đó 8 bằng KHCN chưa có/.test(fn1) && /Nên khai bổ sung lên KHCN/.test(fn1) && /70002 Phương pháp thử số hai/.test(fn1), 'phễu Excel: 10 bằng trong năm (sáng chế 7, GPHI 3), 8 bằng KHCN chưa có, liệt kê số bằng và tên');
+  await pg.waitForTimeout(6500); await shot('17 Tài sản trí tuệ');
   await xl('tt.bang', 'Tài sản trí tuệ');
   await ttTab('sua');
-  const rs = await pg.locator(DT + ' tr:has-text("5001")').innerText();
+  const rs = await rw('5001').innerText();
   ok(/Giải pháp sửa thử/.test(rs) && /Tên:/.test(rs), 'tab Sửa: bằng 5001 có cột Thay đổi (tên)');
+  ok(!(await rw('5001').locator('[data-ck]').isChecked()), 'tab Sửa: bằng 5001 không tick sẵn');
+  await rw('5001').locator('[data-ck]').check(); await pg.waitForTimeout(200);
+  ok(/11 thay đổi/.test(await pg.locator(DT + ' [data-foot]').innerText()), 'tick tay bằng 5001: chân màn 11 thay đổi');
   await ttTab('boqua');
   const bq = await pg.locator(DT + ' [data-blk="tt.bang"] tbody').innerText();
   ok(await pg.locator(DT + ' [data-blk="tt.bang"] [data-ck]').count() === 0, 'tab Bỏ qua không có ô tick');
@@ -297,22 +311,22 @@ wb.save(sys.argv[1])`, fx]);
   await ttTab('them');
   const wt = writes.length, hn = tstt.length;
   await pg.click(DT + ' [data-run]'); await pg.waitForSelector('dialog[open]');
-  ok(/Thêm 8/.test(await pg.locator('dialog[open] .db').innerText()) && /sửa 1/.test(await pg.locator('dialog[open] .db').innerText()), 'hộp xác nhận nêu thêm 8, sửa 1');
+  ok(/Thêm 10/.test(await pg.locator('dialog[open] .db').innerText()) && /sửa 1/.test(await pg.locator('dialog[open] .db').innerText()), 'hộp xác nhận nêu thêm 10, sửa 1');
   await pg.click('dialog[open] button[value=no]'); await pg.waitForTimeout(300);
   ok(writes.length === wt, 'bấm Chạy rồi Huỷ thì không ghi gì');
   await pg.click(DT + ' [data-run]'); await pg.waitForSelector('dialog[open]'); await pg.click('dialog[open] button[value=ok]');
   await pg.waitForFunction(() => /Xong/.test(document.querySelector('[data-scr="day"] [data-foot]').textContent), null, { timeout: 60000 });
-  ok(tt('TT-POST').length === 8 && tt('TT-PUT').length === 1 && tt('TT-DELETE').length === 0, 'đúng 8 POST, 1 PUT, không có DELETE (' + tt('TT-POST').length + '/' + tt('TT-PUT').length + '/' + tt('TT-DELETE').length + ')');
+  ok(tt('TT-POST').length === 10 && tt('TT-PUT').length === 1 && tt('TT-DELETE').length === 0, 'đúng 10 POST, 1 PUT, không có DELETE (' + tt('TT-POST').length + '/' + tt('TT-PUT').length + '/' + tt('TT-DELETE').length + ')');
   const g = x => tstt.find(h => h.mA_GIAI_PHAP === x);
   ok(g('70002') && g('70002').ngaY_CAP === '2026-05-06T00:00:00' && g('70002').naM_DUOC_CAP_BANG === 2026 && g('70002').loaI_GIAI_PHAP === '01' && g('70002').tO_CHUC_CAP_BANG === 'Cục Sở hữu trí tuệ' && g('70002').sO_BANG === '70002', 'bằng 70002 ghi đúng ngày đã đổi lại, loại, nơi cấp, số bằng');
   ok(g('8002') && g('8002').loaI_GIAI_PHAP === '02' && g('8002').ngaY_CAP === '2026-03-04T00:00:00' && g('8100') && g('8100').taC_GIA_SANG_CHE === 'Hà Thử' && g('8001').chU_BANG === 'Trường Đại học Thủy lợi', 'giải pháp hữu ích loại 02 ghi đúng; bằng chỉ có ở KHCN (8100) cũng được thêm; trường lấy từ KHCN khi hai nguồn khác nhau');
   const qtr = g('202699887766B'); ok(qtr && qtr.tO_CHUC_CAP_BANG === 'Cơ quan Sáng chế Thử' && qtr.loaI_GIAI_PHAP === '01' && qtr.ngaY_CAP === '2026-10-07T00:00:00', 'bằng quốc tế: nơi cấp quốc tế, loại 01, ngày 07/10/2026');
   ok(!g('70003') && !g('CN 2026001'), 'hai bằng ngoài TLU chưa tick nên không được thêm');
   const h5 = g('5001'); ok(h5 && h5.id === 't1' && h5.teN_GIAI_PHAP === 'Giải pháp sửa thử' && h5.ngaY_CAP === '2026-02-10T00:00:00' && h5.loaI_GIAI_PHAP === '01', 'bằng 5001 được sửa tại chỗ (giữ id), có tên và ngày cấp');
-  ok(tstt.length === hn + 8, 'HEMIS thêm đúng 8 bản ghi');
+  ok(tstt.length === hn + 10 && g('70007') && g('70008') && g('70008').loaI_GIAI_PHAP === '01', 'HEMIS thêm đúng 10 bản ghi, gồm bằng chưa duyệt (70007) và bằng KHCN xếp ở loại khác (70008)');
   await pg.waitForTimeout(300);
   const tabs2 = await pg.locator(DT + ' [data-blk="tt.bang"] .tabs').innerText();
-  ok(/Thêm \(2\)/.test(tabs2) && /Sửa \(0\)/.test(tabs2) && /Đã khớp \(10\)/.test(tabs2), 'sau khi chạy: Thêm 2, Sửa 0, Đã khớp 10 (' + tabs2.replace(/\s+/g, ' ') + ')');
+  ok(/Thêm \(2\)/.test(tabs2) && /Sửa \(0\)/.test(tabs2) && /Đã khớp \(12\)/.test(tabs2), 'sau khi chạy: Thêm 2, Sửa 0, Đã khớp 12 (' + tabs2.replace(/\s+/g, ' ') + ')');
   await shot('17b Tài sản trí tuệ sau khi chạy');
 
   /* ---------- 4. Chỉ số TT 83 ---------- */

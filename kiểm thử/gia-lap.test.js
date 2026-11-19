@@ -37,8 +37,8 @@ const khcn = (url, form) => {
   const u = new URL(url), p = u.pathname;
   if (p === '/Home/ToanBoDeTai') { const cap = +u.searchParams.get('cap'), pg = +u.searchParams.get('page'); if (pg === 1) dtPass[cap] = (dtPass[cap] || 0) + 1; const first = dtPass[cap] === 1, B0 = dts.filter(d => d.cap === cap), L = dtPass[cap] % 2 === 0 ? B0.slice().reverse() : B0; /* lượt 1: từ trang 2 trở đi lệch một dòng (đề tài ở ranh giới bị sót), lượt sau đầy đủ */ const off = first && pg > 1 ? 1 : 0; return '<table><tr><th>Mã</th></tr>' + L.slice((pg - 1) * 3 + off, pg * 3 + off).map(d => '<tr ondblclick="ShowDeTails(\'' + d.id + '\')"><td>' + d.ma + '</td><td>' + d.ten + '</td><td>' + (d.ap ? 'Đã phê duyệt' : 'Chưa phê duyệt') + '</td><td>' + vnD(d.bd) + '</td><td>' + vnD(d.kt) + '</td></tr>').join('') + '</table>'; }
   if (p === '/Home/DetailsDeTai') { const d = dts.find(x => x.id === +form.id); return '<dl><dt>Cấp</dt><dd>Cấp ' + d.cap + '</dd><dt>Tên đề tài</dt><dd>' + d.ten + '</dd><dt>Tổng kinh phí</dt><dd>' + d.kp.toLocaleString('vi-VN') + ' đ</dd><dt>Thời gian bắt đầu/kết thúc</dt><dd>' + vnD(d.bd) + ' - ' + vnD(d.kt) + '</dd><dt>Trạng thái</dt><dd>' + (d.nt ? 'Đã nghiệm thu: ' + vnD(d.nt) : 'Chưa nghiệm thu') + '</dd><dt>Mã số</dt><dd>' + d.ma + '</dd><dt>Đơn vị chủ trì</dt><dd>Khoa Công trình</dd><dt>Chủ nhiệm</dt><dd>' + d.cn + '</dd></dl>'; }
-  if (p === '/KhoaHocKhac/ToanBoKhoaHocKhac') { const lo = +u.searchParams.get('loai'), pg = +u.searchParams.get('page'); if (pg === 1) ttPass[lo] = (ttPass[lo] || 0) + 1; const first = ttPass[lo] === 1, B0 = tts.filter(d => d.loai === lo), off = first && pg > 1 ? 1 : 0; /* lượt 1: từ trang 2 lệch một dòng, lượt sau đầy đủ */ return '<table><tr><th>h</th></tr>' + B0.slice((pg - 1) * 3 + off, pg * 3 + off).map(d => '<tr ondblclick="ShowDeTails(\'' + d.id + '\')"><td>' + d.ten + '</td></tr>').join('') + '</table>'; }
-  if (p === '/KhoaHocKhac/DetailsKhoaHocKhac') { const d = tts.find(x => x.id === +form.id); return '<dl><dt>Tên sáng chế</dt><dd>' + d.ten + '</dd><dt>Số bằng</dt><dd>' + d.so + '</dd><dt>Ngày cấp</dt><dd>' + d.ngay + '</dd><dt>Chủ bằng</dt><dd>' + d.chu + '</dd><dt>Tác giả</dt><dd>' + d.tg + '</dd></dl>'; }
+  if (p === '/KhoaHocKhac/ToanBoKhoaHocKhac') { const lp = u.searchParams.get('loai'), pg = +u.searchParams.get('page'); if (pg === 1) ttPass[lp] = (ttPass[lp] || 0) + 1; const first = ttPass[lp] === 1, B0 = lp === 'null' ? tts : tts.filter(d => d.loai === +lp && !(+lp === 6 && ttCtl.off6)), off = first && pg > 1 ? 1 : 0; /* lượt đầu: từ trang 2 lệch một dòng, lượt sau đầy đủ */ return '<table><tr><th>h</th></tr>' + B0.slice((pg - 1) * 3 + off, pg * 3 + off).map(d => '<tr ondblclick="ShowDeTails(\'' + d.id + '\')"><td>' + d.ten + '</td><td>' + (d.ap === false ? 'Chưa phê duyệt' : 'Đã phê duyệt') + '</td></tr>').join('') + '</table>'; }
+  if (p === '/KhoaHocKhac/DetailsKhoaHocKhac') { const d = tts.find(x => x.id === +form.id); return '<dl><dt>Loại</dt><dd>' + (d.loaiTxt || (d.loai === 4 ? 'Bằng độc quyền sáng chế' : 'Giải pháp hữu ích')) + '</dd><dt>Tên sáng chế</dt><dd>' + d.ten + '</dd><dt>Số bằng</dt><dd>' + d.so + '</dd><dt>Ngày cấp</dt><dd>' + d.ngay + '</dd><dt>Chủ bằng</dt><dd>' + d.chu + '</dd><dt>Tác giả</dt><dd>' + d.tg + '</dd></dl>'; }
   if (p === '/TrichXuatCongBo') return '<table><tr><th>h</th></tr>' + arts.filter(a => inRange(a, u)).map(a => tr(['1', a.a.map(x => x.n + '<' + x.u + '>').join(', ') + (a.ext ? ', Ext Author' : ''), '', '', '', a.t, a.j, a.l, a.q, '1,2', '1', a.d, a.gio, a.tien, '1', '2', a.pg])).join('') + '</table>';
   if (p === '/CongBo/XuatDuLieu') { const np = u.searchParams.get('nopoint'); const A = arts.filter(a => inRange(a, u)); const L = np === 'null' ? A : np === '1' ? A.filter(a => a.id % 3) : np === '2' ? A.filter(a => a.id % 3 === 0 && a.id % 2) : np === 'true' ? A.filter(a => a.id % 11 === 0) : []; return '<table><tr><th>h</th></tr>' + L.map(a => '<tr ondblclick="ShowDeTails(\'' + a.id + '\')"><td>1</td><td>' + a.t + '</td></tr>').join('') + '</table>'; }
   const bms = [...new Set(users.map(x => x.bm + '|' + x.k))];
@@ -62,10 +62,14 @@ const tts = [
   { id: 7002, loai: 4, ten: 'Thiết bị đo thử (bằng nước ngoài)', so: 'CN 2026001', ngay: '20/08/2026', chu: 'Công ty Thử X', tg: 'Phạm Thử (TLU)' },
   { id: 7003, loai: 4, ten: 'Giáo trình thử nghiệm', so: '', ngay: '', chu: '', tg: 'Hà Thử' },
   { id: 7004, loai: 4, ten: 'Chương trình máy tính thử', so: '90001', ngay: '01/03/2026', chu: 'Trường Đại học Thủy lợi', tg: 'Hà Thử' },
+  { id: 7005, loai: 4, ten: 'Bằng chưa duyệt thử', so: '70007', ngay: '03/04/2026', chu: 'Trường Đại học Thủy lợi', tg: 'Hà Thử', ap: false },
+  { id: 7201, loai: 9, ten: 'Bằng độc quyền sáng chế đặt nhầm loại', so: '70008', ngay: '09/09/2026', chu: 'Trường Đại học Thủy lợi', tg: 'Hà Thử', loaiTxt: 'Bằng độc quyền sáng chế' },
+  { id: 7202, loai: 9, ten: 'Hội thảo thử', so: '', ngay: '', chu: '', tg: '', loaiTxt: 'Hội thảo' },
+  { id: 7203, loai: 9, ten: 'Giấy khen thử', so: '12345', ngay: '01/01/2026', chu: '', tg: '', loaiTxt: 'Khen thưởng' },
   { id: 7101, loai: 6, ten: 'Giải pháp hữu ích thử một', so: '8001', ngay: '11/11/2026', chu: 'Trường Đại học Thủy lợi', tg: 'Phạm Thử A, Phạm Thử B' },
   { id: 7102, loai: 6, ten: 'Giải pháp KHCN riêng', so: '8100', ngay: '02/02/2026', chu: 'Trường Đại học Thủy lợi', tg: 'Hà Thử' }
 ];
-const ttPass = {};
+const ttPass = {}, ttCtl = { off6: false };
 /* nhiem vu KHCN gia tren HEMIS: 1 khop, 1 lech kinh phi (sua), 1 ngoai pham vi (xoa), 1 cap co so (khong bao gio de xuat xoa) */
 const nvOf = (d, o) => Object.assign({ id: 'n' + d.id, doN_VI_ID: '452d0027-e4c1-44d1-9efb-befb8db8840d', mA_NHIEM_VU: d.ma, teN_NHIEM_VU: d.ten, phaN_CAP_NHIEM_VU: '02', phaN_LOAI_NHIEM_VU: '02', cO_QUAN_CHU_QUAN: '19', nguoI_CHU_TRI: d.cn, tG_BAT_DAU: d.bd + 'T00:00:00', tG_KET_THUC: d.kt + 'T00:00:00', tonG_KINH_PHI: d.kp, nguoN_KINH_PHI: '01', tinH_TRANG_NV: '04' }, o);
 const nv = [nvOf(dts.find(d => d.ma === 'DT2-0')), nvOf(dts.find(d => d.ma === 'DT3-0'), { cO_QUAN_CHU_QUAN: '11', tonG_KINH_PHI: 1 }),
@@ -162,7 +166,7 @@ const hemis = (method, p, data) => {
   await pg.click('[data-unf="*"]');
 
   /* cac buoc cho man HEMIS / Danh sach them o duoi */
-  if (fs.existsSync(path.join(__dirname, 'gia-lap-hemis.js'))) await require('./gia-lap-hemis.js')({ pg, APP, shot, idle, ok, writes, hem, errs, nv, dts, dtIn, tstt, OUT });
+  if (fs.existsSync(path.join(__dirname, 'gia-lap-hemis.js'))) await require('./gia-lap-hemis.js')({ pg, APP, shot, idle, ok, writes, hem, errs, nv, dts, dtIn, tstt, ttCtl, OUT });
 
   console.log('LỖI TRANG:', errs.length ? errs : 'không có');
   console.log('Ảnh chụp ở:', OUT);
