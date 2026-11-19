@@ -7,9 +7,8 @@ import { D, loadHemis } from './data.js';
 import { guide } from './huongdan.js';
 import baibao from './baibao.js';
 import detai from './detai.js';
+import tstt from './tstt.js';
 
-const tstt = { id: 'tstt', title: 'Tài sản trí tuệ', on: [], busy: [], badge: () => 0, acts: () => '', sub: () => 'Tài sản trí tuệ',
-  render: body => { body.innerHTML = '<div class="card">' + empty('info', 'Sắp có', 'Phần đẩy tài sản trí tuệ (sáng chế, giải pháp hữu ích) đang làm ở đợt sau.') + '</div>'; }, foot: () => '' };
 const KINDS = [baibao, detai, tstt];
 let root, cur = KINDS.find(k => k.id === pref('day.kind', 'baibao')) || baibao, err = '', tried = false;
 
@@ -23,7 +22,7 @@ const ctx = {
 };
 
 const scr = {
-  id: 'day', title: 'Đẩy lên HEMIS', icon: 'up', group: 2, busy: ['hemis', 'detai'], on: ['scan', 'hemis', 'settings', 'detai'],
+  id: 'day', title: 'Đẩy lên HEMIS', icon: 'up', group: 2, busy: ['hemis', 'detai', 'tstt'], on: ['scan', 'hemis', 'settings', 'detai'],
   badge: () => { const n = KINDS.reduce((s, k) => s + (k.badge() || 0), 0); return n ? { n, label: n + ' thay đổi chờ chạy', info: true } : null; },
   init(el) {
     root = el; el.innerHTML = screenHtml({ title: 'Đẩy lên HEMIS', foot: true });

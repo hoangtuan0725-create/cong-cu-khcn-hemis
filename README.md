@@ -6,9 +6,13 @@ Công cụ của Phòng KHCN&HTQT, Trường Đại học Thủy lợi: kiểm t
 
 ## Cài đặt (một lần)
 
-1. Mở trang công cụ, bấm **Tải tiện ích**, giải nén file zip.
-2. Chrome → `chrome://extensions` → bật **Developer mode** → **Load unpacked** → chọn thư mục vừa giải nén.
-3. Tải lại trang công cụ (F5).
+Hướng dẫn có ảnh: [Hướng dẫn cài đặt.pdf](docs/Hướng%20dẫn%20cài%20đặt.pdf) (cũng mở được từ trang công cụ, nút **Cách cài**).
+
+1. Mở trang công cụ, bấm **Cách cài** → **Tải tiện ích**, giải nén (Extract All). Để thư mục ở chỗ cố định, không xoá.
+2. Chrome → `chrome://extensions` → bật **Developer mode** → **Load unpacked** → chọn thư mục `Tiện ích KHCN HEMIS` (có `manifest.json`).
+3. Tải lại trang công cụ (F5). Chân menu trái hiện "Tiện ích: bản 2.1.0".
+
+Cập nhật công cụ: chỉ cần F5. Khi trang báo tiện ích cần cập nhật (rất hiếm): tải zip mới, giải nén đè chỗ cũ, bấm Reload ở `chrome://extensions`, F5.
 
 Tiện ích chỉ làm cầu nối: công cụ dùng phiên đăng nhập KHCN và HEMIS sẵn có trên Chrome của người dùng. Không lưu mật khẩu; dữ liệu chỉ đi giữa trình duyệt và hai hệ thống, không qua máy chủ nào khác.
 
